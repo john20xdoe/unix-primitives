@@ -7,8 +7,8 @@ description: >
   Circuit Breakers, 2PC/WAL, git bisect, LKML patch series, compiler diagnostics).
   Eliminates fragile English checklists and zero-frequency prompt DSLs by leveraging 50 years
   of pre-training weight gravity.
-  Trigger: /unix-primitives [convert|generate|scan] <path|prompt>, "convert prompt to unix primitives",
-  "apply pre-training gravity", "unix prompt converter", "refactor prompt to unix".
+  Trigger: /unix-primitives [scan|convert|rewrite|generate] [target], "convert prompt to unix primitives",
+  "apply pre-training gravity", "unix prompt converter", "refactor prompt to unix". Defaults to 'scan' when command omitted.
 ---
 
 # Unix Primitives (Pre-Training Gravity Skill)
@@ -17,16 +17,24 @@ description: >
 
 Transforms fragile natural-language prompts, numbered checklists, and zero-frequency prompt DSLs (`Freq ≈ 0`) into canonical Unix and computer science formalisms (`Freq > 1,000,000`).
 
-Bespoke prompt DSLs force frontier LLMs to simulate interpreters inside fragile working-memory attention heads, causing attention dilution ($O(1/L)$), sequential amnesia, and skipped gates. In contrast, 50-year-old Unix formalisms trigger deep, pre-trained feed-forward circuits ("static symbol linkage"), freeing working memory for actual code synthesis.
+> [!IMPORTANT]
+> **Resolution Invariant (Zero Search Token Burn)**:
+> This skill is installed globally at `~/.gemini/config/skills/unix-primitives/SKILL.md`.
+> When invoked in any workspace containing a local `.agents/` folder:
+> * **DO NOT** execute exploratory tool calls searching `.agents/skills/unix-primitives` if absent.
+> * Immediately load and execute via the canonical global installation: `~/.gemini/config/skills/unix-primitives/`.
+> * Run `python3 ~/.gemini/config/skills/unix-primitives/scripts/state_manager.py link-agents` to auto-link skills into `.agents/skills/` if local registration is desired.
 
 ---
 
 ## Triggers & Usage
 
+* `/unix-primitives [filepath | .agents-folder]` (or bare `/unix-primitives`): **Default behavior (scan)**. Audits prompt file or workspace for friction. If target is omitted, auto-detects local `.agents/`, `CLAUDE.md`, `.cursorrules`, or `README.md`.
+* `/unix-primitives scan <filepath | .agents-folder>`: Explicit friction audit. (Restricted to local workspaces; rejects global paths).
 * `/unix-primitives convert <filepath>`: Non-destructive conversion. Writes refactored output to `<filepath>.NN.md` (e.g. `CLAUDE.01.md`), leaving original untouched.
 * `/unix-primitives rewrite <filepath>`: In-place rewrite. Saves backup to `<filepath>.original.md` and updates original file.
 * `/unix-primitives generate <task description>`: Generate brand-new skill, prompt, workflow, or ruleset architected entirely with canonical formalisms.
-* `/unix-primitives scan <filepath>`: Non-destructive analysis reporting friction score and mapping recommendations.
+
 
 * `/unix-primitives init [dir] [--ticket ID]`: Physically provision bounded `.state/` directory in repo with real Makefile and runlevel latches.
 * `/unix-stamp <plan|tdd|impl> "<summary>"`: Write physical milestone latch to disk with named aliases.
@@ -62,6 +70,24 @@ Bespoke prompt DSLs force frontier LLMs to simulate interpreters inside fragile 
 ---
 
 ## Execution Protocol
+
+### Mode 0: Default Scan Audit (`/unix-primitives [target]`)
+
+When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives <target>`):
+1. **Default Action is ALWAYS `scan`**: Do NOT halt execution or query user for a subcommand. Execute the pre-training friction analysis immediately.
+2. **Target Resolution**:
+   * If target path is supplied (`/unix-primitives <path>`), scan that target:
+     ```bash
+     python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py scan "<path>"
+     ```
+   * If target path is omitted (`/unix-primitives`), run auto-detected scan in workspace:
+     ```bash
+     python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py
+     ```
+     The engine auto-detects local `.agents/` folder, `CLAUDE.md`, `.cursorrules`, or `README.md`.
+3. Present the resulting friction report and identify any high-friction anti-patterns detected.
+
+---
 
 ### Mode 1: Convert / Rewrite Existing File (`/unix-primitives convert | rewrite <path>`)
 

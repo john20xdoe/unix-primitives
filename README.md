@@ -67,9 +67,10 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-status`** | Inspects active runlevel, physical `mtime` timestamps, and staleness health ($>72\text{h}$) |
 | **`/unix-clean`** | Archives completed ticket to flat log and resets active slots to clean slate |
 | **`/unix-hook [install\|remove]`** | Optional git pre-push gate (local commits stay safe; push validates milestones) |
+| **`/unix-primitives [file\|.agents]`** | **Default command: scan**. Audits prompt file or workspace. Auto-detects local `.agents/` or prompt files if omitted |
+| **`/unix-primitives scan <file\|.agents>`** | Explicit audit of prompt file or local `.agents/` folder (rules, skills, workflows). Rejects global paths |
 | **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
 | **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.original.md` backup and updates target file |
-| **`/unix-primitives scan <file>`** | Audits prompt and reports pre-training friction score ($0$ to $100$) |
 
 ---
 
@@ -125,9 +126,24 @@ cd unix-primitives
 
 Step-by-step walkthrough for first-time users:
 
-### Step 1: Audit & Refactor Existing Prompts (Non-Destructive)
-Harden an existing prompt, guideline, or README without modifying the original:
+### Step 1: Audit & Refactor Existing Prompts
 
+#### Audit Friction (Default Behavior):
+```text
+# Default audit (auto-detects local .agents/, CLAUDE.md, etc.):
+/unix-primitives
+
+# Audit specific file directly:
+/unix-primitives CLAUDE.md
+
+# Audit entire local .agents/ folder:
+/unix-primitives .agents/
+# or explicitly with subcommand:
+/unix-primitives scan .agents/
+```
+*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. Folder scanning is strictly restricted to local workspace `.agents/` directories; global configurations like `~/.gemini` are protected).*
+
+#### Refactor Prompts Non-Destructively:
 ```text
 /unix-primitives convert CLAUDE.md
 ```
@@ -156,6 +172,8 @@ When beginning work on a ticket or feature in any repository:
   * `.state/10_ticket.md` (task requirements & RFC 822 headers)
   * `.state/Makefile` (real GNU Makefile DAG)
   * `.state/.gitignore` (prevents transient latches from entering git commits)
+* **Zero-Token Discovery**: If workspace contains `.agents/skills`, `/unix-init` automatically links `unix-*` skills locally into `.agents/skills/` so agents find them immediately on turn 1 without exploratory searches.
+
 
 ---
 

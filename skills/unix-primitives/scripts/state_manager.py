@@ -157,6 +157,33 @@ Timestamp: {now_iso}
     print(f"Active ticket: [{ticket_id}] {title}")
     print(f"Disk slots strictly bounded (Max 6 files, O(1) storage).")
 
+    # 7. Auto-link to local .agents/skills if present for zero-token discovery
+    link_project_agents(workspace)
+
+def link_project_agents(workspace: str) -> None:
+    workspace_agents = os.path.join(os.path.abspath(workspace), ".agents", "skills")
+    if not os.path.exists(workspace_agents):
+        return
+
+    global_skills_dir = os.path.expanduser("~/.gemini/config/skills")
+    if not os.path.exists(global_skills_dir):
+        return
+
+    linked_count = 0
+    for name in os.listdir(global_skills_dir):
+        if name.startswith("unix-"):
+            src = os.path.join(global_skills_dir, name)
+            dst = os.path.join(workspace_agents, name)
+            if not os.path.exists(dst):
+                try:
+                    os.symlink(src, dst)
+                    linked_count += 1
+                except OSError:
+                    pass
+    if linked_count > 0:
+        print(f"Auto-linked {linked_count} unix skills into workspace .agents/skills/ for zero-token discovery.")
+
+
 def write_next_action(workspace: str, next_action: str, last_completed: str, status: str, ticket_id: str) -> None:
     state_dir = get_state_dir(workspace)
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -360,10 +387,16 @@ def main():
     p_hook.add_argument("--remove", action="store_true", help="Remove hook")
     p_hook.add_argument("--workspace", default=".", help="Workspace path")
 
+    # link-agents (link global skills into local .agents/skills/)
+    p_link = subparsers.add_parser("link-agents", help="Symlink global unix skills into local .agents/skills/ for zero-token discovery")
+    p_link.add_argument("--workspace", default=".", help="Workspace path")
+
     args = parser.parse_args()
 
     if args.command == "init":
         init_workspace(args.workspace, args.ticket, args.title)
+    elif args.command == "link-agents":
+        link_project_agents(args.workspace)
     elif args.command == "stamp":
         stamp_milestone(args.workspace, args.slot, args.content, args.next_action)
     elif args.command == "artifact":
@@ -376,6 +409,7 @@ def main():
         manage_hook(args.workspace, hook_type=args.type, remove=args.remove)
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

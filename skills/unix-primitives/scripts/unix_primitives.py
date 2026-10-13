@@ -10,7 +10,7 @@ import sys
 import os
 import re
 import argparse
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 PATTERNS = [
     {
@@ -238,6 +238,90 @@ def format_scan_report(filepath: str, findings: List[Dict], total_lines: int) ->
         
     return "\n".join(lines)
 
+def is_global_path(path: str) -> bool:
+    abs_p = os.path.realpath(os.path.abspath(os.path.expanduser(path)))
+    home = os.path.realpath(os.path.expanduser("~"))
+    global_indicators = [
+        os.path.join(home, ".gemini"),
+        os.path.join(home, ".config"),
+        os.path.join(home, ".agents"),
+    ]
+    for ind in global_indicators:
+        if abs_p == ind or abs_p.startswith(ind + os.sep):
+            return True
+    return False
+
+def collect_agent_files(dir_path: str) -> List[str]:
+    valid_exts = {".md", ".yaml", ".yml", ".txt"}
+    collected = []
+    skip_dirs = {".git", "node_modules", ".state", "archive", "__pycache__"}
+    for root, dirs, files in os.walk(dir_path):
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        for f in files:
+            if f.startswith("."):
+                continue
+            ext = os.path.splitext(f)[1].lower()
+            if ext in valid_exts:
+                collected.append(os.path.join(root, f))
+    return sorted(collected)
+
+def scan_directory(dir_path: str) -> None:
+    if is_global_path(dir_path):
+        print(f"Error: Refusing to scan global configuration directory: {dir_path}", file=sys.stderr)
+        print("Folder scanning is strictly restricted to local workspace .agents/ directories.", file=sys.stderr)
+        sys.exit(1)
+
+    files = collect_agent_files(dir_path)
+    if not files:
+        print(f"No scanable rules, skills, or workflows found in: {dir_path}")
+        return
+
+    file_results = []
+    total_findings_count = 0
+    total_lines_count = 0
+
+    for fpath in files:
+        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        lines = len(content.splitlines())
+        findings = scan_text(content)
+        score = calculate_friction_score(findings, lines)
+        total_findings_count += len(findings)
+        total_lines_count += lines
+        rel_path = os.path.relpath(fpath, os.path.dirname(dir_path))
+        file_results.append({
+            "path": fpath,
+            "rel_path": rel_path,
+            "lines": lines,
+            "score": score,
+            "findings": findings
+        })
+
+    avg_score = sum(r["score"] for r in file_results) // len(file_results) if file_results else 0
+    max_score = max((r["score"] for r in file_results), default=0)
+    status = "CRITICAL: Highly Fragile" if max_score > 60 else "MODERATE: Can be hardened" if max_score > 20 else "CLEAN"
+
+    print("=== Local .agents/ Workspace Friction Audit ===")
+    print(f"Target Directory: {dir_path}")
+    print(f"Scanned Files: {len(file_results)} files ({total_lines_count} total lines)")
+    print(f"Total Anti-Patterns Detected: {total_findings_count}")
+    print(f"Project Health: {status} (Average Score: {avg_score}/100, Peak Friction: {max_score}/100)\n")
+
+    print(f"{'Score':<8} | {'Lines':<6} | {'File':<40} | {'Top Finding'}")
+    print("-" * 80)
+    for r in file_results:
+        top_finding = r["findings"][0]["pattern"]["id"] if r["findings"] else "CLEAN"
+        print(f"{r['score']:<3}/100  | {r['lines']:<6} | {r['rel_path'][:40]:<40} | {top_finding}")
+
+    needy_files = [r for r in file_results if r["score"] > 20]
+    if needy_files:
+        print("\n--- High-Friction Files Requiring Hardening ---")
+        for r in needy_files:
+            print(f"\nTarget: {r['rel_path']} (Score: {r['score']}/100)")
+            for f_idx, f in enumerate(r["findings"][:3], 1):
+                p = f["pattern"]
+                print(f"  [{f_idx}] {p['name']} -> Use {p['canonical']}")
+
 def get_next_increment_path(target_path: str) -> str:
     dir_name = os.path.dirname(os.path.abspath(target_path))
     base_name = os.path.basename(target_path)
@@ -258,13 +342,43 @@ def get_next_increment_path(target_path: str) -> str:
     next_num = max(existing_nums, default=0) + 1
     return os.path.join(dir_name, f"{stem}.{next_num:02d}{ext}")
 
+def auto_detect_target() -> Optional[str]:
+    # 1. Local .agents directory
+    if os.path.isdir(".agents"):
+        return ".agents"
+    # 2. Common prompt/agent guideline files
+    common_candidates = [
+        "CLAUDE.md",
+        ".cursorrules",
+        "CONVENTIONS.md",
+        "AGENTS.md",
+        "SYSTEM_PROMPT.md",
+        "README.md",
+    ]
+    for candidate in common_candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    # 3. Any markdown file in current root directory
+    try:
+        md_files = sorted([f for f in os.listdir(".") if f.endswith(".md") and os.path.isfile(f) and not f.startswith(".")])
+        if md_files:
+            return md_files[0]
+    except Exception:
+        pass
+    return None
+
 def main():
+    # If first argument is a file/path rather than a subcommand, default to 'scan'
+    known_cmds = {"scan", "convert", "rewrite"}
+    if len(sys.argv) > 1 and sys.argv[1] not in known_cmds and not sys.argv[1].startswith("-"):
+        sys.argv.insert(1, "scan")
+
     parser = argparse.ArgumentParser(description="Analyze or refactor prompts into canonical Unix & CS primitives.")
     subparsers = parser.add_subparsers(dest="command")
 
-    # scan
-    p_scan = subparsers.add_parser("scan", help="Scan and output friction report only")
-    p_scan.add_argument("target", help="Path to target file")
+    # scan (supports single file or local .agents folder)
+    p_scan = subparsers.add_parser("scan", help="Scan file or local .agents/ folder for friction report (default)")
+    p_scan.add_argument("target", nargs="?", help="Path to file or local .agents/ directory (defaults to auto-detection)")
 
     # convert (default non-destructive, writes to <target>.NN.md)
     p_convert = subparsers.add_parser("convert", help="Convert non-destructively to <target>.NN.md")
@@ -275,25 +389,36 @@ def main():
     p_rewrite = subparsers.add_parser("rewrite", help="Rewrite file in-place with <target>.original.md backup")
     p_rewrite.add_argument("target", help="Path to target file")
 
-    # Allow direct fallback: unix_primitives.py <target>
-    parser.add_argument("target_file", nargs="?", help="Direct target file path (defaults to scan)")
-
     args = parser.parse_args()
 
-    # Determine command and target
     cmd = args.command
-    target = getattr(args, "target", None) or args.target_file
+    target = getattr(args, "target", None)
 
-    if not target:
-        parser.print_help()
-        sys.exit(1)
+    if not cmd or (cmd == "scan" and not target):
+        cmd = "scan"
+        target = auto_detect_target()
+        if not target:
+            print("Error: No target specified and no prompt files detected (.agents/, CLAUDE.md, README.md).", file=sys.stderr)
+            print("Usage: unix_primitives.py [scan|convert|rewrite] <target>", file=sys.stderr)
+            sys.exit(1)
+        print(f"No target specified. Defaulting to 'scan {target}'...\n")
 
     target_path = os.path.abspath(os.path.expanduser(target))
     if not os.path.exists(target_path):
-        print(f"Error: Target file not found: {target_path}", file=sys.stderr)
+        print(f"Error: Target path not found: {target_path}", file=sys.stderr)
         sys.exit(1)
 
-    with open(target_path, "r", encoding="utf-8") as f:
+    # Check if directory
+    if os.path.isdir(target_path):
+        if cmd in ("scan", None):
+            scan_directory(target_path)
+            sys.exit(0)
+        else:
+            print(f"Error: Command '{cmd}' requires a single file target, not a directory: {target_path}", file=sys.stderr)
+            sys.exit(1)
+
+    # Single file processing
+    with open(target_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
     total_lines = len(content.splitlines())
@@ -314,4 +439,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
