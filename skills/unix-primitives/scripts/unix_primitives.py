@@ -198,6 +198,71 @@ def scan_text(text: str) -> List[Dict]:
             })
     return findings
 
+SUBSYSTEMS = [
+    {
+        "id": "BUILD_EXECUTION",
+        "num": 1,
+        "name": "Build & Execution DAGs",
+        "canonical": "GNU Makefile DAG",
+        "primitives": ["MAKEFILE_DAG"],
+        "description": "Deterministic dependency graphs, target invalidation (.PHONY, mtime)",
+    },
+    {
+        "id": "STATE_LIFECYCLE",
+        "num": 2,
+        "name": "State Persistence & Lifecycle",
+        "canonical": "SysV Runlevels + RFC 822 / POSIX Signals",
+        "primitives": ["SYSV_INITD", "POSIX_SIGNALS"],
+        "description": "Compaction-immune disk latches (00_ -> 99_) & signal traps (SIGINT/SIGTERM)",
+    },
+    {
+        "id": "PROCESS_CONCURRENCY",
+        "num": 3,
+        "name": "Process Isolation & Concurrency",
+        "canonical": "Unix Process Control / flock(2) / Least Privilege",
+        "primitives": ["PROCESS_ISOLATION", "FILE_LOCKING", "LEAST_PRIVILEGE"],
+        "description": "Arena memory reclamation (fork/waitpid/trap EXIT), file locking, capability masks",
+    },
+    {
+        "id": "PROTOCOLS_STREAM",
+        "num": 4,
+        "name": "Protocols & Stream Demux",
+        "canonical": "RFC 5234 EBNF / Stream Demux / Ring Buffer",
+        "primitives": ["EBNF_GRAMMAR", "STREAM_DEMUX", "RING_BUFFER"],
+        "description": "XOR gate production rules, stdout/stderr segregation, O(1) ring buffers",
+    },
+    {
+        "id": "VERIFICATION_DIAGNOSTICS",
+        "num": 5,
+        "name": "Verification & Diagnostics",
+        "canonical": "Design-by-Contract / Multi-Pass Compiler Diagnostics",
+        "primitives": ["DESIGN_BY_CONTRACT", "COMPILER_DIAGNOSTICS"],
+        "description": "Hoare contracts (@requires/@ensures), QuickCheck laws, structured error[SCAR-XX]",
+    },
+    {
+        "id": "TRANSACTION_SAFETY",
+        "num": 6,
+        "name": "Transaction Safety & Fault Tolerance",
+        "canonical": "WAL + 2PC / Circuit Breaker / Fail-Fast Shell / COW Worktrees",
+        "primitives": ["TWO_PHASE_COMMIT", "CIRCUIT_BREAKER", "FAIL_FAST_SHELL", "SPECULATIVE_COW"],
+        "description": "Atomic cross-module transactions, k=2 circuit breaker, set -euo pipefail, git worktree",
+    },
+    {
+        "id": "TOPOLOGY_SEARCH",
+        "num": 7,
+        "name": "Search & Commit Topology",
+        "canonical": "git bisect / LKML [PATCH 0/N] Series",
+        "primitives": ["GIT_BISECT", "LKML_PATCH_SERIES"],
+        "description": "O(log2 N) binary search partitioning, topologically ordered bisectable commit series",
+    },
+]
+
+PRIMITIVE_MAP = {p["id"]: p for p in PATTERNS}
+PRIMITIVE_SUBSYSTEM_MAP = {}
+for sub in SUBSYSTEMS:
+    for pid in sub["primitives"]:
+        PRIMITIVE_SUBSYSTEM_MAP[pid] = sub
+
 def calculate_friction_score(findings: List[Dict], total_lines: int) -> int:
     if not findings:
         return 0
@@ -208,66 +273,136 @@ def classify_file_suitability(content: str, rel_path: str, findings: List[Dict])
     finding_ids = {f["pattern"]["id"] for f in findings}
     lines_lower = content.lower()
     
-    is_makefile = False
-    makefile_reasons = []
+    detected_primitives: Dict[str, str] = {}
     
+    # 1. MAKEFILE_DAG
     if "MAKEFILE_DAG" in finding_ids:
-        is_makefile = True
-        makefile_reasons.append("Sequential execution checklist / workflow GOTO loop")
-    if any(k in lines_lower for k in ["workflow", "pipeline", "execution step", "steps to follow", "build steps", "ci-gate"]):
-        is_makefile = True
-        makefile_reasons.append("Multi-stage process / pipeline stages")
-    if re.search(r"```(?:bash|sh)\b[\s\S]*?(?:npm|pytest|cargo|make|python3|pip|docker|git|mvn|gradle)", content):
-        is_makefile = True
-        makefile_reasons.append("Chains shell commands / test / build / lint execution targets")
+        detected_primitives["MAKEFILE_DAG"] = "Sequential execution checklist / workflow GOTO loop"
+    elif any(k in lines_lower for k in ["workflow", "pipeline", "execution step", "steps to follow", "build steps", "ci-gate"]):
+        detected_primitives["MAKEFILE_DAG"] = "Multi-stage process / execution pipeline"
+    elif re.search(r"```(?:bash|sh)\b[\s\S]*?(?:npm|pytest|cargo|make|python3|pip|docker|git|mvn|gradle)", content):
+        detected_primitives["MAKEFILE_DAG"] = "Chains shell build/test commands into targets"
+
+    # 2. SYSV_INITD
+    if "SYSV_INITD" in finding_ids:
+        detected_primitives["SYSV_INITD"] = "Mutable task tracking / compaction-vulnerable scratchpad"
+    elif re.search(r"-\s*\[[ xX]?\]", content) or any(k in lines_lower for k in ["todo", "checklist", "progress tracking", "task list", "scratchpad"]):
+        detected_primitives["SYSV_INITD"] = "Interactive todo/checklist -> Externalize to physical disk latches (00_ to 99_)"
+
+    # 3. PROCESS_ISOLATION
+    if "PROCESS_ISOLATION" in finding_ids:
+        detected_primitives["PROCESS_ISOLATION"] = "Subagent delegation / memory management"
+    elif any(k in lines_lower for k in ["subagent", "sub-agent", "child agent", "worker agent", "delegate to"]):
+        detected_primitives["PROCESS_ISOLATION"] = "Worker agent delegation -> Bound via fork()/waitpid() arena GC"
+
+    # 4. EBNF_GRAMMAR
+    if "EBNF_GRAMMAR" in finding_ids:
+        detected_primitives["EBNF_GRAMMAR"] = "Output format constraints / pause-tool gating conflict"
+    elif any(k in lines_lower for k in ["json only", "format strictly", "pause gate", "wait for user", "stop and ask before"]):
+        detected_primitives["EBNF_GRAMMAR"] = "Unconstrained response grammar -> Enforce hard XOR mutual exclusion"
+
+    # 5. DESIGN_BY_CONTRACT
+    if "DESIGN_BY_CONTRACT" in finding_ids:
+        detected_primitives["DESIGN_BY_CONTRACT"] = "Informal testing / edge-case pleading"
+    elif any(k in lines_lower for k in ["unit test", "edge case", "acceptance criteria", "invariants", "precondition", "postcondition"]):
+        detected_primitives["DESIGN_BY_CONTRACT"] = "Informal test criteria -> Formalize with @requires/@ensures and QuickCheck laws"
+
+    # 6. TWO_PHASE_COMMIT
+    if "TWO_PHASE_COMMIT" in finding_ids:
+        detected_primitives["TWO_PHASE_COMMIT"] = "Cross-module refactoring without atomicity guarantees"
+    elif any(k in lines_lower for k in ["refactor across", "atomic change", "all or nothing", "multi-file refactor"]):
+        detected_primitives["TWO_PHASE_COMMIT"] = "Multi-file mutations -> Enforce WAL + 2PC (PREPARE -> COMMIT/ROLLBACK)"
+
+    # 7. CIRCUIT_BREAKER
+    if "CIRCUIT_BREAKER" in finding_ids:
+        detected_primitives["CIRCUIT_BREAKER"] = "Unbounded retry loop / apology death spiral"
+    elif any(k in lines_lower for k in ["retry until", "if failed try again", "when stuck", "repeat on failure"]):
+        detected_primitives["CIRCUIT_BREAKER"] = "Retry loops -> Trip to OPEN at k=2 repeated failures with hard halt"
+
+    # 8. GIT_BISECT
+    if "GIT_BISECT" in finding_ids:
+        detected_primitives["GIT_BISECT"] = "Linear guesswork debugging / regression tracing"
+    elif any(k in lines_lower for k in ["binary search", "git bisect", "find regression", "figure out what broke", "root cause"]):
+        detected_primitives["GIT_BISECT"] = "Ad-hoc debugging -> Logarithmic binary partitioning O(log2 N)"
+
+    # 9. LKML_PATCH_SERIES
+    if "LKML_PATCH_SERIES" in finding_ids:
+        detected_primitives["LKML_PATCH_SERIES"] = "Vague commit decomposition / Conventional Commits guidelines"
+    elif any(k in lines_lower for k in ["clean commit", "logical commit", "commit message convention", "patch series"]):
+        detected_primitives["LKML_PATCH_SERIES"] = "Commit structuring -> LKML [PATCH 0/N] series with git rebase --exec invariant"
+
+    # 10. COMPILER_DIAGNOSTICS
+    if "COMPILER_DIAGNOSTICS" in finding_ids:
+        detected_primitives["COMPILER_DIAGNOSTICS"] = "Polite / superficial code review checklist"
+    elif any(k in lines_lower for k in ["code review", "review the diff", "check for bugs", "code quality checklist"]):
+        detected_primitives["COMPILER_DIAGNOSTICS"] = "Code review -> Multi-pass compiler diagnostics (error[SCAR-XX])"
+
+    # 11. STREAM_DEMUX
+    if "STREAM_DEMUX" in finding_ids:
+        detected_primitives["STREAM_DEMUX"] = "Mixed payload and conversational prose in single channel"
+    elif any(k in lines_lower for k in ["stdout", "stderr", "mix data", "payload and comments", "no conversational text"]):
+        detected_primitives["STREAM_DEMUX"] = "Channel mixing -> POSIX stream demux (FD 1 pure payload vs FD 2 diagnostics)"
+
+    # 12. POSIX_SIGNALS
+    if "POSIX_SIGNALS" in finding_ids:
+        detected_primitives["POSIX_SIGNALS"] = "Unstructured cancellation / teardown handling"
+    elif any(k in lines_lower for k in ["sigint", "sigterm", "cancellation", "graceful shutdown", "clean exit"]):
+        detected_primitives["POSIX_SIGNALS"] = "Interruption handling -> POSIX signal traps (SIGINT checkpoint, SIGTERM rollback)"
+
+    # 13. FILE_LOCKING
+    if "FILE_LOCKING" in finding_ids:
+        detected_primitives["FILE_LOCKING"] = "Unsynchronized concurrent agent writes"
+    elif any(k in lines_lower for k in ["concurrent write", "race condition", "file lock", "flock"]):
+        detected_primitives["FILE_LOCKING"] = "Concurrent mutations -> Advisory file locking (flock(2) / <file>.lock)"
+
+    # 14. FAIL_FAST_SHELL
     if "FAIL_FAST_SHELL" in finding_ids:
-        is_makefile = True
-        makefile_reasons.append("Shell execution requiring fail-fast dependency DAG")
+        detected_primitives["FAIL_FAST_SHELL"] = "Permissive silent script error swallowing"
+    elif any(k in lines_lower for k in ["set -e", "pipefail", "fail-fast", "stop on error"]):
+        detected_primitives["FAIL_FAST_SHELL"] = "Script execution -> set -euo pipefail fail-fast invariant"
 
-    alt_primitives = []
-    if "SYSV_INITD" in finding_ids or re.search(r"-\s*\[[ xX]?\]", content) or any(k in lines_lower for k in ["todo", "checklist", "progress", "task list", "scratchpad"]):
-        alt_primitives.append({
-            "name": "SysV Runlevels + RFC 822 (.state/)",
-            "reason": "Mutable task tracking / checklists -> Externalize to physical disk latches (00_ to 99_) to survive 200k+ compaction"
-        })
-    if "EBNF_GRAMMAR" in finding_ids or "STREAM_DEMUX" in finding_ids or any(k in lines_lower for k in ["json only", "format strictly", "pause", "wait for user", "stop and ask"]):
-        alt_primitives.append({
-            "name": "RFC 5234 EBNF Grammars",
-            "reason": "Output formatting & pause gates -> Enforce hard XOR mutual exclusion between pause gates and tool execution"
-        })
-    if "COMPILER_DIAGNOSTICS" in finding_ids or any(k in lines_lower for k in ["code review", "check for bugs", "code quality", "lint rules"]):
-        alt_primitives.append({
-            "name": "Multi-Pass Compiler Diagnostics (error[SCAR-XX])",
-            "reason": "Code review / quality checklists -> Replace polite prose with structured AST/lifetime passes and exit codes"
-        })
-    if "DESIGN_BY_CONTRACT" in finding_ids or any(k in lines_lower for k in ["unit test", "edge case", "acceptance criteria", "invariants"]):
-        alt_primitives.append({
-            "name": "Design-by-Contract (@requires, @ensures)",
-            "reason": "Test prompting -> Anchor with formal Hoare pre/post conditions and QuickCheck laws"
-        })
-    if "CIRCUIT_BREAKER" in finding_ids or any(k in lines_lower for k in ["retry", "if failed", "try again", "when stuck"]):
-        alt_primitives.append({
-            "name": "Circuit Breaker FSM (k=2)",
-            "reason": "Retry / failure recovery -> Enforce CLOSED -> OPEN trip state machine after k=2 failures to stop apology loops"
-        })
-    if "PROCESS_ISOLATION" in finding_ids or any(k in lines_lower for k in ["subagent", "delegate"]):
-        alt_primitives.append({
-            "name": "Unix Process Control (fork() / waitpid())",
-            "reason": "Subagent delegation -> Ephemeral child process boundary with arena garbage collection on exit"
-        })
-    if "LEAST_PRIVILEGE" in finding_ids or any(k in lines_lower for k in ["read-only", "do not modify", "forbidden"]):
-        alt_primitives.append({
-            "name": "Least Privilege (chmod r--)",
-            "reason": "Read-only file pleading -> Enforce structural capability permissions rather than conversational pleading"
-        })
+    # 15. SPECULATIVE_COW
+    if "SPECULATIVE_COW" in finding_ids:
+        detected_primitives["SPECULATIVE_COW"] = "Unhedged in-place speculative trial edits"
+    elif any(k in lines_lower for k in ["scratch worktree", "git worktree", "speculative edit", "undo if failed"]):
+        detected_primitives["SPECULATIVE_COW"] = "Trial modifications -> Copy-On-Write scratch worktrees (git worktree)"
 
-    is_reference = not is_makefile and not alt_primitives and len(findings) == 0
+    # 16. LEAST_PRIVILEGE
+    if "LEAST_PRIVILEGE" in finding_ids:
+        detected_primitives["LEAST_PRIVILEGE"] = "Conversational pleading for read-only / tool restrictions"
+    elif any(k in lines_lower for k in ["read-only mode", "do not modify files", "forbidden to edit", "least privilege"]):
+        detected_primitives["LEAST_PRIVILEGE"] = "Tool restrictions -> Principle of Least Privilege / Capabilities (chmod r--)"
+
+    # 17. RING_BUFFER
+    if "RING_BUFFER" in finding_ids:
+        detected_primitives["RING_BUFFER"] = "Unbounded log output / terminal context flooding"
+    elif any(k in lines_lower for k in ["ring buffer", "logrotate", "truncate log", "tail output", "save tokens"]):
+        detected_primitives["RING_BUFFER"] = "Terminal logs -> Circular Ring Buffer (head 5 + tail 45 lines, O(1) bound)"
+
+    # Map detected primitives into subsystems
+    subsystem_matches: Dict[str, List[Dict]] = {}
+    for pid, reason in detected_primitives.items():
+        sub = PRIMITIVE_SUBSYSTEM_MAP.get(pid)
+        if sub:
+            sub_id = sub["id"]
+            if sub_id not in subsystem_matches:
+                subsystem_matches[sub_id] = []
+            pat = PRIMITIVE_MAP.get(pid, {})
+            subsystem_matches[sub_id].append({
+                "primitive_id": pid,
+                "name": pat.get("name", pid),
+                "canonical": pat.get("canonical", pid),
+                "reason": reason,
+                "explanation": pat.get("explanation", ""),
+                "snippet": pat.get("snippet", "")
+            })
+
+    is_reference = len(detected_primitives) == 0 and len(findings) == 0
 
     return {
         "rel_path": rel_path,
-        "is_makefile": is_makefile,
-        "makefile_reasons": makefile_reasons,
-        "alt_primitives": alt_primitives,
+        "detected_primitives": detected_primitives,
+        "subsystem_matches": subsystem_matches,
         "is_reference": is_reference,
     }
 
@@ -306,38 +441,34 @@ def format_scan_report(filepath: str, findings: List[Dict], total_lines: int, co
         lines.append("No direct syntactic anti-patterns detected in lexical scan.")
         lines.append("Evaluating architectural suitability from document structure...\n")
 
-    lines.append("=== Makefile Suitability Breakdown ===")
+    lines.append("=== Canonical Unix & CS Primitives Architecture Audit (7 Subsystems / 17 Primitives) ===")
     lines.append("")
-    lines.append("* High-Value Makefile Candidates (File artifact pipelines & DAGs):")
-    if suit["is_makefile"]:
-        for r in suit["makefile_reasons"]:
-            lines.append(f"  - Pipeline/workflow candidate: {r}")
-        lines.append("    -> Recommendation: Refactor execution sequence into GNU Makefile DAG (.PHONY, test, lint, ci-gate).")
-    else:
-        lines.append("  - None: File does not contain multi-step build/test commands or file artifact pipelines.")
 
-    lines.append("")
-    lines.append("* Better as Compiler / EBNF / State Primitives (Not Makefiles):")
-    if suit["alt_primitives"]:
-        for p in suit["alt_primitives"]:
-            lines.append(f"  - {p['name']}:")
-            lines.append(f"      {p['reason']}")
+    if suit["subsystem_matches"]:
+        lines.append("* Matched OS Subsystems & Canonical Primitives:")
+        for sub in SUBSYSTEMS:
+            sub_id = sub["id"]
+            if sub_id in suit["subsystem_matches"]:
+                matches = suit["subsystem_matches"][sub_id]
+                lines.append(f"  [{sub['num']}/7] {sub['name']} ({sub['canonical']}):")
+                for m in matches:
+                    lines.append(f"    - {m['canonical']} (ID: {m['primitive_id']}):")
+                    lines.append(f"        Trigger: {m['reason']}")
+                    lines.append(f"        Invariant: {m['explanation']}")
+        lines.append("")
     else:
-        lines.append("  - None: No state tracking, review checklists, or formatting gates detected.")
+        lines.append("* Matched OS Subsystems: None (No procedural anti-patterns detected)")
+        lines.append("")
 
-    lines.append("")
-    lines.append("* Preserved as Domain Reference / Invariants:")
+    lines.append("* Domain Reference & Invariants:")
     if suit["is_reference"]:
         lines.append("  - Pure domain documentation & repo guidelines. Preserve as markdown reference.")
     else:
-        lines.append("  - Project architecture, technology stack, and business rules remain as markdown context.")
-
+        lines.append("  - Project architecture, technology stack, and domain business rules remain as markdown context.")
     lines.append("")
+
     lines.append("=== Actionable Recommendations ===")
-    if suit["is_makefile"]:
-        lines.append(f"1. Refactor workflow into a GNU Makefile DAG:")
-        lines.append(f"   -> /unix-primitives convert {filepath}")
-    elif suit["alt_primitives"] or findings:
+    if suit["detected_primitives"] or findings:
         lines.append(f"1. Refactor file non-destructively into canonical CS formalisms:")
         lines.append(f"   -> /unix-primitives convert {filepath}")
     else:
@@ -419,11 +550,17 @@ def scan_directory(dir_path: str) -> None:
     print(f"Total Anti-Patterns Detected: {total_findings_count}")
     print(f"Project Health: {status} (Average Score: {avg_score}/100, Peak Friction: {max_score}/100)\n")
 
-    print(f"{'Score':<8} | {'Lines':<6} | {'File':<40} | {'Top Finding'}")
+    print(f"{'Score':<8} | {'Lines':<6} | {'File':<40} | {'Primary Subsystem'}")
     print("-" * 80)
     for r in file_results:
-        top_finding = r["findings"][0]["pattern"]["id"] if r["findings"] else "CLEAN"
-        print(f"{r['score']:<3}/100  | {r['lines']:<6} | {r['rel_path'][:40]:<40} | {top_finding}")
+        if r["suit"]["subsystem_matches"]:
+            first_sub_id = next(iter(r["suit"]["subsystem_matches"]))
+            sub_name = next((s["name"] for s in SUBSYSTEMS if s["id"] == first_sub_id), "Active")
+        elif r["findings"]:
+            sub_name = r["findings"][0]["pattern"]["id"]
+        else:
+            sub_name = "Domain Reference"
+        print(f"{r['score']:<3}/100  | {r['lines']:<6} | {r['rel_path'][:40]:<40} | {sub_name[:24]}")
 
     needy_files = [r for r in file_results if r["score"] > 20]
     if needy_files:
@@ -434,47 +571,34 @@ def scan_directory(dir_path: str) -> None:
                 p = f["pattern"]
                 print(f"  [{f_idx}] {p['name']} -> Use {p['canonical']}")
 
-    # Makefile & Primitive Suitability Breakdown
-    print("\n=== Makefile Suitability Breakdown ===")
-    makefile_candidates = [r for r in file_results if r["suit"]["is_makefile"]]
-    alt_candidates = [r for r in file_results if r["suit"]["alt_primitives"]]
-    ref_candidates = [r for r in file_results if r["suit"]["is_reference"]]
+    # Canonical Architecture Audit: 7 OS Subsystems
+    print("\n=== Canonical Architecture Audit: 7 OS Subsystems (17 Formalisms) ===")
+    for sub in SUBSYSTEMS:
+        sub_id = sub["id"]
+        matching_files = [r for r in file_results if sub_id in r["suit"]["subsystem_matches"]]
+        print(f"\n[{sub['num']}/7] {sub['name']} ({sub['canonical']}):")
+        if matching_files:
+            for r in matching_files:
+                reasons = [m["reason"] for m in r["suit"]["subsystem_matches"][sub_id]]
+                print(f"  - {r['rel_path']}: {'; '.join(reasons)}")
+        else:
+            print("  - None detected")
 
-    print("\n* High-Value Makefile Candidates (File artifact pipelines & DAGs):")
-    if makefile_candidates:
-        for r in makefile_candidates:
-            reasons = "; ".join(r["suit"]["makefile_reasons"])
-            print(f"  - {r['rel_path']}: {reasons}")
-    else:
-        print("  - None detected: No files contain multi-step build/test command pipelines.")
-
-    print("\n* Better as Compiler / EBNF / State Primitives (Not Makefiles):")
-    if alt_candidates:
-        for r in alt_candidates:
-            print(f"  - {r['rel_path']}:")
-            for p in r["suit"]["alt_primitives"]:
-                print(f"      -> {p['name']}: {p['reason']}")
-    else:
-        print("  - None detected: No standalone rules for state tracking, reviews, or gates.")
-
-    print("\n* Preserved as Domain Reference / Invariants:")
-    if ref_candidates:
-        for r in ref_candidates:
-            print(f"  - {r['rel_path']}: Domain context / guidelines. Keep as markdown reference.")
+    ref_files = [r for r in file_results if r["suit"]["is_reference"]]
+    print("\n[Domain Reference & Invariants]:")
+    if ref_files:
+        for r in ref_files:
+            print(f"  - {r['rel_path']}: Domain context / guidelines. Preserve as markdown reference.")
     else:
         print("  - All scanned files contain active behavioral or workflow invariants.")
 
     print("\n=== Actionable Recommendations ===")
     step_num = 1
-    if makefile_candidates:
-        top_mk = makefile_candidates[0]
-        print(f"{step_num}. Refactor high-value pipeline into a canonical Makefile DAG:")
-        print(f"   -> /unix-primitives convert {top_mk['rel_path']}")
-        step_num += 1
-    if alt_candidates:
-        top_alt = alt_candidates[0]
-        print(f"{step_num}. Refactor rules/skills into canonical CS primitives:")
-        print(f"   -> /unix-primitives convert {top_alt['rel_path']}")
+    high_friction = [r for r in file_results if r["score"] > 20 or r["suit"]["detected_primitives"]]
+    if high_friction:
+        top_target = high_friction[0]
+        print(f"{step_num}. Refactor high-friction file into canonical CS formalisms:")
+        print(f"   -> /unix-primitives convert {top_target['rel_path']}")
         step_num += 1
     print(f"{step_num}. Initialize physical disk state runtime (.state/) in workspace:")
     print(f"   -> /unix-init <ticket-id> \"<title>\"")
@@ -524,9 +648,80 @@ def auto_detect_target() -> Optional[str]:
         pass
     return None
 
+def generate_subagent_prompt(target_path: str) -> str:
+    # Collect target files
+    if os.path.isdir(target_path):
+        files = collect_agent_files(target_path)
+    else:
+        files = [target_path]
+
+    telemetry_lines = []
+    telemetry_lines.append(f"Target: {target_path} ({len(files)} files)")
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8", errors="ignore") as fp:
+                fc = fp.read()
+            lines = len(fc.splitlines())
+            fnds = scan_text(fc)
+            score = calculate_friction_score(fnds, lines)
+            rel = os.path.relpath(f, os.path.dirname(target_path) if os.path.isdir(target_path) else os.path.dirname(f))
+            top = fnds[0]["pattern"]["id"] if fnds else "CLEAN"
+            telemetry_lines.append(f"- `{rel}`: {lines} lines, score {score}/100, top finding: {top}")
+        except Exception:
+            telemetry_lines.append(f"- `{f}`: (unable to read)")
+
+    prompt = f"""Role: Prompt Architecture Auditor
+Goal: Semantically audit target prompt/rule files and classify them across the 7 OS Subsystems and 17 Canonical Unix & CS Primitives.
+
+=== TARGET INVENTORY & TELEMETRY ===
+{chr(10).join(telemetry_lines)}
+
+=== CANONICAL CLASSIFICATION CONTRACT (7 OS SUBSYSTEMS / 17 PRIMITIVES) ===
+[1] Build & Execution DAGs:
+    * MAKEFILE_DAG (1): Sequential checklists, workflows, build/test chains. Invariant: Backward-chaining DAG + mtime invalidation.
+
+[2] State Persistence & Lifecycle:
+    * SYSV_INITD (2): Progress tracking, mutable todos, amnesia. Invariant: Externalized disk latches 00_ to 99_ + RFC 822 headers survive 200k+ compaction.
+    * POSIX_SIGNALS (12): Cancellation, teardown, interruption. Invariant: SIGINT checkpoint, SIGTERM rollback, SIGHUP reload traps.
+
+[3] Process Isolation & Concurrency:
+    * PROCESS_ISOLATION (3): Subagent delegation, unbounded context. Invariant: fork()/waitpid(), arena GC on exit 0, orchestrator <30k tokens.
+    * FILE_LOCKING (13): Concurrent agent writes, collisions. Invariant: Advisory lock flock(2) / <file>.lock mutual exclusion.
+    * LEAST_PRIVILEGE (16): Pleading not to touch files. Invariant: Principle of Least Privilege / Capabilities (chmod r--).
+
+[4] Protocols & Stream Demux:
+    * EBNF_GRAMMAR (4): Output formatting, pause gates. Invariant: RFC 5234 production rules with strict XOR mutual exclusion between pause gate & tools.
+    * STREAM_DEMUX (11): Mixed JSON payload & human comments. Invariant: POSIX stream demux (stdout FD 1 pure payload vs stderr FD 2 diagnostics).
+    * RING_BUFFER (17): Unbounded terminal logs, context flooding. Invariant: Circular ring buffer FIFO (head 5 + tail 45 lines, O(1) bound).
+
+[5] Verification & Diagnostics:
+    * DESIGN_BY_CONTRACT (5): Vague edge-case testing. Invariant: Design-by-Contract (@requires/@ensures/@invariant) + QuickCheck algebraic laws.
+    * COMPILER_DIAGNOSTICS (10): Polite code reviews. Invariant: Multi-pass compiler diagnostics (error[SCAR-XX] AST/lifetime/blast-radius passes).
+
+[6] Transaction Safety & Fault Tolerance:
+    * TWO_PHASE_COMMIT (6): Multi-file/package refactoring. Invariant: Database WAL + 2PC (PREPARE -> COMMIT/ROLLBACK), zero partial edits.
+    * CIRCUIT_BREAKER (7): Apology loops, retries. Invariant: Distributed Circuit Breaker FSM (CLOSED -> OPEN at k=2 repeated errors) + Idempotency keys.
+    * FAIL_FAST_SHELL (14): Silent command failures. Invariant: set -euo pipefail zero-tolerance error propagation.
+    * SPECULATIVE_COW (15): In-place speculative edits. Invariant: Ephemeral git worktree scratch sandbox, fast-forward merge only if green.
+
+[7] Search & Commit Topology:
+    * GIT_BISECT (8): Guess-based debugging. Invariant: Logarithmic binary partitioning O(log2 N).
+    * LKML_PATCH_SERIES (9): Commit decomposition. Invariant: LKML [PATCH 0/N] series, git rebase --exec "make test" invariant on every patch.
+
+[Domain Reference & Invariants]:
+    * Pure tech stack definitions, domain business rules, and architecture references. Preserve as markdown reference.
+
+=== INSTRUCTIONS ===
+1. Use view_file to inspect files in the inventory.
+2. Produce a concise audit report grouped by the 7 OS Subsystems (+ Domain Reference).
+3. Provide exact Actionable Recommendations (/unix-primitives convert <file> and /unix-init).
+4. Full reference catalog: skills/unix-primitives/references/rosetta_stone.md
+"""
+    return prompt
+
 def main():
     # If first argument is a file/path rather than a subcommand, default to 'scan'
-    known_cmds = {"scan", "convert", "rewrite"}
+    known_cmds = {"scan", "convert", "rewrite", "audit-prompt"}
     if len(sys.argv) > 1 and sys.argv[1] not in known_cmds and not sys.argv[1].startswith("-"):
         sys.argv.insert(1, "scan")
 
@@ -536,6 +731,11 @@ def main():
     # scan (supports single file or local .agents folder)
     p_scan = subparsers.add_parser("scan", help="Scan file or local .agents/ folder for friction report (default)")
     p_scan.add_argument("target", nargs="?", help="Path to file or local .agents/ directory (defaults to auto-detection)")
+
+    # audit-prompt (generate full non-paraphrased subagent audit prompt)
+    p_audit = subparsers.add_parser("audit-prompt", help="Generate full non-paraphrased subagent audit prompt bundle")
+    p_audit.add_argument("target", nargs="?", help="Path to file or local .agents/ directory")
+    p_audit.add_argument("--save-to", help="Optional file path to save the generated prompt")
 
     # convert (default non-destructive, writes to <target>.NN.md)
     p_convert = subparsers.add_parser("convert", help="Convert non-destructively to <target>.NN.md")
@@ -556,7 +756,7 @@ def main():
         target = auto_detect_target()
         if not target:
             print("Error: No target specified and no prompt files detected (.agents/, CLAUDE.md, README.md).", file=sys.stderr)
-            print("Usage: unix_primitives.py [scan|convert|rewrite] <target>", file=sys.stderr)
+            print("Usage: unix_primitives.py [scan|convert|rewrite|audit-prompt] <target>", file=sys.stderr)
             sys.exit(1)
         print(f"No target specified. Defaulting to 'scan {target}'...\n")
 
@@ -564,6 +764,17 @@ def main():
     if not os.path.exists(target_path):
         print(f"Error: Target path not found: {target_path}", file=sys.stderr)
         sys.exit(1)
+
+    if cmd == "audit-prompt":
+        prompt = generate_subagent_prompt(target_path)
+        out_save = getattr(args, "save_to", None)
+        if out_save:
+            with open(out_save, "w", encoding="utf-8") as out_fp:
+                out_fp.write(prompt)
+            print(f"Generated subagent audit prompt written to: {out_save}")
+        else:
+            print(prompt)
+        sys.exit(0)
 
     # Check if directory
     if os.path.isdir(target_path):

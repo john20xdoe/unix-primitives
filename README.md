@@ -73,6 +73,7 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-hook [install\|remove]`** | Optional git pre-push gate (local commits stay safe; push validates milestones) |
 | **`/unix-primitives [file\|.agents]`** | **Default command: scan**. Audits prompt file or workspace. Auto-detects local `.agents/` or prompt files if omitted |
 | **`/unix-primitives scan <file\|.agents>`** | Explicit audit of prompt file or local `.agents/` folder (rules, skills, workflows). Rejects global paths |
+| **`/unix-primitives audit-prompt [file\|.agents]`** | Emits lean, non-paraphrased subagent instruction bundle with telemetry and classification contract |
 | **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
 | **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.original.md` backup and updates target file |
 
@@ -145,7 +146,7 @@ Step-by-step walkthrough for first-time users:
 # or explicitly with subcommand:
 /unix-primitives scan .agents/
 ```
-*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. The scan immediately provides a complete **Makefile Suitability Breakdown** classifying files into high-value Makefile pipelines, Compiler/EBNF/State primitives, and reference documentation, along with actionable next steps).*
+*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. Directory and multi-file audits leverage an isolated read-only child subagent [Unix Primitive #3: Process Control] fed with the target telemetry and the complete 7 OS Subsystems / 17 Primitives classification contract to deliver a comprehensive **Canonical Architecture Audit** on turn 1 without context bloat or guesswork).*
 
 #### Refactor Prompts Non-Destructively:
 ```text

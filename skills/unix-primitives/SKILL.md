@@ -88,11 +88,34 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
 3. **Mandatory First-Turn Report Protocol**:
    The agent MUST ALWAYS deliver the complete scan report in that initial turn—**NEVER** wait for the user to ask follow-up questions:
    * **Pre-Training Friction Audit**: Numeric friction scores, detected anti-patterns, and mapped canonical primitives.
-   * **Makefile Suitability Breakdown**:
-     - *High-Value Makefile Candidates*: Multi-step command sequences, build/test pipelines, and file artifact generators.
-     - *Better as Compiler / EBNF / State Primitives (Not Makefiles)*: Code review rules (`error[SCAR-XX]`), format/pause gates (RFC 5234 EBNF), task tracking (SysV `.state/` latches), contracts (`@requires`/`@ensures`), and retry loops (Circuit Breaker `k=2`).
-     - *Preserved as Domain Reference / Invariants*: Pure architecture specs, technology stacks, and domain conventions.
+   * **Canonical Architecture Audit (7 OS Subsystems / 17 Primitives)**:
+     - *[1/7] Build & Execution DAGs*: GNU Makefile DAG (`MAKEFILE_DAG`) for sequential build/test/lint command pipelines.
+     - *[2/7] State Persistence & Lifecycle*: SysV `/etc/init.d` Runlevels + RFC 822 (`SYSV_INITD`) for progress tracking / latches, and POSIX Signals (`POSIX_SIGNALS`) for deterministic interruption traps.
+     - *[3/7] Process Isolation & Concurrency*: Unix Process Control (`PROCESS_ISOLATION`), Advisory File Locking (`FILE_LOCKING`), and Least Privilege (`LEAST_PRIVILEGE`).
+     - *[4/7] Protocols & Stream Demux*: RFC 5234 EBNF (`EBNF_GRAMMAR`) for XOR gate exclusion, Stream Demux (`STREAM_DEMUX`) for stdout/stderr segregation, and Ring Buffers (`RING_BUFFER`) for $O(1)$ log ceilings.
+     - *[5/7] Verification & Diagnostics*: Design-by-Contract (`DESIGN_BY_CONTRACT`) for Hoare pre/post conditions, and Multi-Pass Compiler Diagnostics (`COMPILER_DIAGNOSTICS`) for structured static review passes.
+     - *[6/7] Transaction Safety & Fault Tolerance*: Database WAL + 2PC (`TWO_PHASE_COMMIT`) for atomic multi-file edits, Circuit Breaker FSM (`CIRCUIT_BREAKER`) for $k=2$ loop breaking, Fail-Fast Shell (`FAIL_FAST_SHELL`), and COW Scratch Worktrees (`SPECULATIVE_COW`).
+     - *[7/7] Search & Commit Topology*: `git bisect` (`GIT_BISECT`) for $O(\log_2 N)$ partitioning, and LKML `[PATCH 0/N]` Series (`LKML_PATCH_SERIES`) for bisectable commit DAGs.
+     - *[Domain Reference & Invariants]*: Pure architecture specs, technology stacks, and domain conventions preserved as markdown context.
    * **Actionable Recommendations**: Exact commands to run next (e.g. `/unix-primitives convert <path>`, `/unix-init <ticket> <title>`).
+
+4. **Subagent Delegation Protocol (Primitive #3: Process Control & Arena GC)**:
+   For deep semantic audits of directory workspaces (e.g. `.agents/`) or complex multi-file prompt rulesets, orchestrators delegate classification to an isolated read-only child subagent:
+   * **Step 1: Generate Full Non-Paraphrased Payload**:
+     Run `audit-prompt` to build the complete, unparaphrased subagent instruction bundle:
+     ```bash
+     python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py audit-prompt "<target>"
+     ```
+     This bundle provides exact target inventory, CLI scan telemetry, the full 7 OS Subsystems / 17 Primitives classification contract, and pointer to `references/rosetta_stone.md`—giving the subagent 100% of the operational data needed for scan without token bloat or guessing.
+   * **Step 2: Spawn Child Subagent**:
+     Invoke child subagent via `invoke_subagent`:
+     - `TypeName`: `research` (or `self`)
+     - `Role`: `Prompt Architecture Auditor`
+     - `Prompt`: Generated unparaphrased payload from Step 1.
+   * **Step 3: Child Execution & Artifact Flushing**:
+     Child reads target files, classifies each into the 7 OS Subsystems or Domain Reference, writes markdown findings to disk (`.state/artifacts/prompt_audit.md` via `state_manager.py artifact`), and exits.
+   * **Step 4: Orchestrator Memory Preservation**:
+     Child virtual memory is discarded upon completion. Parent orchestrator retains clean working context (<30k tokens) and immediately surfaces the complete **Canonical Architecture Audit** across all 17 formalisms to the user.
 
 ---
 
