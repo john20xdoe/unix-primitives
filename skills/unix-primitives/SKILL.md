@@ -31,6 +31,7 @@ Transforms fragile natural-language prompts, numbered checklists, and zero-frequ
 
 * `/unix-primitives [filepath | .agents-folder]` (or bare `/unix-primitives`): **Default behavior (scan)**. Audits prompt file or workspace for friction. If target is omitted, auto-detects local `.agents/`, `CLAUDE.md`, `.cursorrules`, or `README.md`.
 * `/unix-primitives scan <filepath | .agents-folder>`: Explicit friction audit. (Restricted to local workspaces; rejects global paths).
+* `/unix-primitives delta <original> <rewritten>`: Compute friction score delta, percentage reduction, and resolved primitives.
 * `/unix-primitives convert <filepath>`: Non-destructive conversion. Writes refactored output to `<filepath>.NN.md` (e.g. `CLAUDE.01.md`), leaving original untouched.
 * `/unix-primitives rewrite <filepath>`: In-place rewrite. Saves backup to `<filepath>.original.md` and updates original file.
 * `/unix-primitives generate <task description>`: Generate brand-new skill, prompt, workflow, or ruleset architected entirely with canonical formalisms.
@@ -138,8 +139,12 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
 4. **Preserve Domain Code & Paths Verbatim**:
    * **NEVER** modify existing file paths, variable names, shell commands, or repo-specific business logic.
    * Only refactor the *control flow, execution invariants, state tracking, and protocol definitions*.
-5. **Report Score Delta**:
-   Display before/after friction analysis and target destination path.
+5. **Report Score Delta (`delta`)**:
+   Execute the delta comparator to report numeric friction reduction:
+   ```bash
+   python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py delta "<original-path>" "<rewritten-path>"
+   ```
+   Outputs exact before/after score, % reduction, resolved primitives, and remaining findings without ad-hoc inline python scripting.
 
 
 ---

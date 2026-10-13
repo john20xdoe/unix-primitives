@@ -719,9 +719,72 @@ Goal: Semantically audit target prompt/rule files and classify them across the 7
 """
     return prompt
 
+def format_score_delta(original_path: str, rewritten_path: str) -> str:
+    orig_abs = os.path.abspath(os.path.expanduser(original_path))
+    rewr_abs = os.path.abspath(os.path.expanduser(rewritten_path))
+
+    if not os.path.isfile(orig_abs):
+        return f"Error: Original file not found: {original_path}"
+    if not os.path.isfile(rewr_abs):
+        return f"Error: Rewritten file not found: {rewritten_path}"
+
+    with open(orig_abs, "r", encoding="utf-8", errors="ignore") as f:
+        orig_content = f.read()
+    with open(rewr_abs, "r", encoding="utf-8", errors="ignore") as f:
+        rewr_content = f.read()
+
+    orig_lines = len(orig_content.splitlines())
+    rewr_lines = len(rewr_content.splitlines())
+
+    orig_findings = scan_text(orig_content)
+    rewr_findings = scan_text(rewr_content)
+
+    orig_score = calculate_friction_score(orig_findings, orig_lines)
+    rewr_score = calculate_friction_score(rewr_findings, rewr_lines)
+
+    orig_primitives = {f["pattern"]["id"]: f["pattern"].get("canonical", f["pattern"]["id"]) for f in orig_findings}
+    rewr_primitives = {f["pattern"]["id"]: f["pattern"].get("canonical", f["pattern"]["id"]) for f in rewr_findings}
+
+    resolved_ids = sorted(list(set(orig_primitives.keys()) - set(rewr_primitives.keys())))
+    remaining_ids = sorted(list(set(rewr_primitives.keys())))
+    new_ids = sorted(list(set(rewr_primitives.keys()) - set(orig_primitives.keys())))
+
+    delta = rewr_score - orig_score
+    pct_reduction = 0.0
+    if orig_score > 0:
+        pct_reduction = ((orig_score - rewr_score) / orig_score) * 100.0
+
+    lines = [
+        "=== Pre-Training Friction Score Delta ===",
+        f"Original:  {original_path} ({orig_lines} lines)",
+        f"           -> Score: {orig_score}/100 ({len(orig_findings)} anti-pattern matches)",
+        f"Rewritten: {rewritten_path} ({rewr_lines} lines)",
+        f"           -> Score: {rewr_score}/100 ({len(rewr_findings)} anti-pattern matches)",
+        "",
+        f"Delta:     {delta:+d} ({pct_reduction:.1f}% friction reduction)" if orig_score > 0 else f"Delta:     {delta:+d}",
+    ]
+
+    if resolved_ids:
+        resolved_str = ", ".join(f"{pid} ({orig_primitives[pid]})" for pid in resolved_ids)
+        lines.append(f"Resolved:  {resolved_str}")
+    else:
+        lines.append("Resolved:  None")
+
+    if remaining_ids:
+        rem_str = ", ".join(f"{pid} ({rewr_primitives[pid]})" for pid in remaining_ids)
+        lines.append(f"Remaining: {rem_str}")
+    else:
+        lines.append("Remaining: NONE (Clean - zero anti-pattern matches)")
+
+    if new_ids:
+        new_str = ", ".join(f"{pid} ({rewr_primitives[pid]})" for pid in new_ids)
+        lines.append(f"Introduced: {new_str}")
+
+    return "\n".join(lines)
+
 def main():
     # If first argument is a file/path rather than a subcommand, default to 'scan'
-    known_cmds = {"scan", "convert", "rewrite", "audit-prompt"}
+    known_cmds = {"scan", "convert", "rewrite", "audit-prompt", "delta"}
     if len(sys.argv) > 1 and sys.argv[1] not in known_cmds and not sys.argv[1].startswith("-"):
         sys.argv.insert(1, "scan")
 
@@ -731,6 +794,11 @@ def main():
     # scan (supports single file or local .agents folder)
     p_scan = subparsers.add_parser("scan", help="Scan file or local .agents/ folder for friction report (default)")
     p_scan.add_argument("target", nargs="?", help="Path to file or local .agents/ directory (defaults to auto-detection)")
+
+    # delta (compare original vs rewritten score)
+    p_delta = subparsers.add_parser("delta", help="Compute friction score delta between original and rewritten file")
+    p_delta.add_argument("original", help="Path to original file")
+    p_delta.add_argument("rewritten", help="Path to rewritten file")
 
     # audit-prompt (generate full non-paraphrased subagent audit prompt)
     p_audit = subparsers.add_parser("audit-prompt", help="Generate full non-paraphrased subagent audit prompt bundle")
@@ -749,6 +817,12 @@ def main():
     args = parser.parse_args()
 
     cmd = args.command
+
+    if cmd == "delta":
+        report = format_score_delta(args.original, args.rewritten)
+        print(report)
+        sys.exit(0)
+
     target = getattr(args, "target", None)
 
     if not cmd or (cmd == "scan" and not target):
@@ -756,7 +830,7 @@ def main():
         target = auto_detect_target()
         if not target:
             print("Error: No target specified and no prompt files detected (.agents/, CLAUDE.md, README.md).", file=sys.stderr)
-            print("Usage: unix_primitives.py [scan|convert|rewrite|audit-prompt] <target>", file=sys.stderr)
+            print("Usage: unix_primitives.py [scan|convert|rewrite|audit-prompt|delta] <target>", file=sys.stderr)
             sys.exit(1)
         print(f"No target specified. Defaulting to 'scan {target}'...\n")
 

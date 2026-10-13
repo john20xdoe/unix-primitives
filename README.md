@@ -74,6 +74,7 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-primitives [file\|.agents]`** | **Default command: scan**. Audits prompt file or workspace. Auto-detects local `.agents/` or prompt files if omitted |
 | **`/unix-primitives scan <file\|.agents>`** | Explicit audit of prompt file or local `.agents/` folder (rules, skills, workflows). Rejects global paths |
 | **`/unix-primitives audit-prompt [file\|.agents]`** | Emits lean, non-paraphrased subagent instruction bundle with telemetry and classification contract |
+| **`/unix-primitives delta <orig> <new>`** | Evaluates numeric score delta, % friction reduction, and resolved primitives |
 | **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
 | **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.original.md` backup and updates target file |
 
