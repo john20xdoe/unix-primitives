@@ -23,9 +23,11 @@ Bespoke prompt DSLs force frontier LLMs to simulate interpreters inside fragile 
 
 ## Triggers & Usage
 
-* `/unix-primitives convert <filepath>`: Scan file, backup to `<filepath>.original.md`, refactor fragile prose into canonical Unix/CS formalisms.
+* `/unix-primitives convert <filepath>`: Non-destructive conversion. Writes refactored output to `<filepath>.NN.md` (e.g. `CLAUDE.01.md`), leaving original untouched.
+* `/unix-primitives rewrite <filepath>`: In-place rewrite. Saves backup to `<filepath>.original.md` and updates original file.
 * `/unix-primitives generate <task description>`: Generate brand-new skill, prompt, workflow, or ruleset architected entirely with canonical formalisms.
 * `/unix-primitives scan <filepath>`: Non-destructive analysis reporting friction score and mapping recommendations.
+
 * `/unix-primitives init [dir] [--ticket ID]`: Physically provision bounded `.state/` directory in repo with real Makefile and runlevel latches.
 * `/unix-stamp <plan|tdd|impl> "<summary>"`: Write physical milestone latch to disk with named aliases.
 * `/unix-status [dir]`: Check active runlevels, disk timestamps, and staleness health.
@@ -61,15 +63,16 @@ Bespoke prompt DSLs force frontier LLMs to simulate interpreters inside fragile 
 
 ## Execution Protocol
 
-### Mode 1: Convert Existing File (`/unix-primitives convert <path>`)
+### Mode 1: Convert / Rewrite Existing File (`/unix-primitives convert | rewrite <path>`)
 
 1. **Scan Target**:
-   Run scanner to inspect anti-pattern matches:
+   Run scanner to inspect anti-pattern matches and determine output path:
    ```bash
-   python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py "<path>"
+   python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py convert "<path>"
    ```
-2. **Create Safe Backup**:
-   Save exact original to `<path>.original.md` before making any modifications.
+2. **Determine Target Destination**:
+   * **`convert` (Default — Non-Destructive)**: Generates refactored output in `<path>.NN.md` (e.g. `CLAUDE.01.md`, `README.01.md`). The original file remains untouched.
+   * **`rewrite` (In-Place)**: Saves backup to `<path>.original.md` before overwriting `<path>`.
 3. **Refactor Invariants**:
    * Replace linear instructions with backward-chaining Makefile targets or explicit FSMs.
    * Replace mutable progress tracking with `/etc/init.d`-style disk latches and RFC 822 headers.
@@ -80,7 +83,8 @@ Bespoke prompt DSLs force frontier LLMs to simulate interpreters inside fragile 
    * **NEVER** modify existing file paths, variable names, shell commands, or repo-specific business logic.
    * Only refactor the *control flow, execution invariants, state tracking, and protocol definitions*.
 5. **Report Score Delta**:
-   Display before/after friction analysis and token savings summary.
+   Display before/after friction analysis and target destination path.
+
 
 ---
 

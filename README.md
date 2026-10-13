@@ -67,7 +67,9 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-status`** | Inspects active runlevel, physical `mtime` timestamps, and staleness health ($>72\text{h}$) |
 | **`/unix-clean`** | Archives completed ticket to flat log and resets active slots to clean slate |
 | **`/unix-hook [install\|remove]`** | Optional git pre-push gate (local commits stay safe; push validates milestones) |
-| **`/unix-primitives convert <file>`** | Refactors existing prompt/rules files into canonical CS formalisms |
+| **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
+| **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.original.md` backup and updates target file |
+| **`/unix-primitives scan <file>`** | Audits prompt and reports pre-training friction score ($0$ to $100$) |
 
 ---
 
@@ -117,10 +119,94 @@ cd unix-primitives
 * `--symlink` (**Default**): Establishes live symlinks from `skills/*` to `~/.gemini/config/skills/`. Any edits or git updates in this repository take effect immediately across all agent sessions without re-running install.
 * `--copy`: Performs standalone `cp -R` into `~/.gemini/config/skills/`. Useful if running on systems that restrict symlinks or when wanting disconnected snapshot.
 
+---
+
+## Usage
+
+Step-by-step walkthrough for first-time users:
+
+### Step 1: Audit & Refactor Existing Prompts (Non-Destructive)
+Harden an existing prompt, guideline, or README without modifying the original:
+
+```text
+/unix-primitives convert CLAUDE.md
+```
+* **Output**: Writes refactored instructions into auto-incrementing `CLAUDE.01.md`.
+* **Original**: `CLAUDE.md` remains untouched.
+* Inspect the diff to compare fragile prose against canonical formalisms:
+  ```bash
+  diff -u CLAUDE.md CLAUDE.01.md
+  ```
+* When ready to apply changes in place:
+  ```text
+  /unix-primitives rewrite CLAUDE.md
+  ```
+  *(Saves backup to `CLAUDE.md.original.md` and updates `CLAUDE.md`)*.
+
+---
+
+### Step 2: Initialize Workspace Runtime (When Starting a Task)
+When beginning work on a ticket or feature in any repository:
+
+```text
+/unix-init PROJ-101 "Implement JWT authentication"
+```
+* Physically creates `.state/` in repo root with:
+  * `.state/00_governance.md` (immutable rules)
+  * `.state/10_ticket.md` (task requirements & RFC 822 headers)
+  * `.state/Makefile` (real GNU Makefile DAG)
+  * `.state/.gitignore` (prevents transient latches from entering git commits)
+
+---
+
+### Step 3: Advance Runlevel Milestones
+As development progresses, stamp physical disk latches:
+
+```text
+/unix-stamp plan "Architecture approved by reviewer"
+/unix-stamp tdd  "Failing reproduction test added"
+/unix-stamp impl "Verified implementation passing test suite"
+```
+* Updates physical disk `mtime`.
+* Overwrites volatile pointer `99_next_action.md` in-place ($<200\text{B}$).
+
+---
+
+### Step 4: Check Health & Compaction Recovery
+Inspect active runlevel state or recover after a long session:
+
+```text
+/unix-status
+```
+* **Compaction Recovery**: If context resets after 200k+ tokens, agent reads disk latches and resumes immediately with zero lost steps.
+* **Staleness Check**: Flags tasks older than 72 hours.
+
+---
+
+### Step 5: (Optional) Install Safe Pre-Push Gate
+Prevent pushing unverified milestones upstream without interrupting local commits:
+
+```text
+/unix-hook install
+```
+* Commits proceed freely during development.
+* `git push` verifies `.state/Makefile` target `ci-gate`.
+
+---
+
+### Step 6: Complete & Reset (Zero Bloat)
+When ticket is merged and task is done:
+
+```text
+/unix-clean
+```
+* Archives completed session to flat `.state/archive/PROJ-101.log`.
+* Purges active slots back to clean slate ($O(1)$ zero bloat).
 
 ---
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
 

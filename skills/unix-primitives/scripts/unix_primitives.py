@@ -238,13 +238,57 @@ def format_scan_report(filepath: str, findings: List[Dict], total_lines: int) ->
         
     return "\n".join(lines)
 
+def get_next_increment_path(target_path: str) -> str:
+    dir_name = os.path.dirname(os.path.abspath(target_path))
+    base_name = os.path.basename(target_path)
+    if "." in base_name and not base_name.startswith("."):
+        stem, ext = base_name.rsplit(".", 1)
+        ext = f".{ext}"
+    else:
+        stem, ext = base_name, ""
+
+    pattern = re.compile(rf"^{re.escape(stem)}\.(\d{{2}}){re.escape(ext)}$")
+    existing_nums = []
+    if os.path.exists(dir_name):
+        for fname in os.listdir(dir_name):
+            m = pattern.match(fname)
+            if m:
+                existing_nums.append(int(m.group(1)))
+
+    next_num = max(existing_nums, default=0) + 1
+    return os.path.join(dir_name, f"{stem}.{next_num:02d}{ext}")
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze or refactor prompts into canonical Unix & CS primitives.")
-    parser.add_argument("target", help="Path to markdown, prompt, or skill file")
-    parser.add_argument("--scan", action="store_true", help="Scan and output friction report only")
+    subparsers = parser.add_subparsers(dest="command")
+
+    # scan
+    p_scan = subparsers.add_parser("scan", help="Scan and output friction report only")
+    p_scan.add_argument("target", help="Path to target file")
+
+    # convert (default non-destructive, writes to <target>.NN.md)
+    p_convert = subparsers.add_parser("convert", help="Convert non-destructively to <target>.NN.md")
+    p_convert.add_argument("target", help="Path to target file")
+    p_convert.add_argument("--output", help="Custom output path")
+
+    # rewrite (in-place rewrite with <target>.original.md backup)
+    p_rewrite = subparsers.add_parser("rewrite", help="Rewrite file in-place with <target>.original.md backup")
+    p_rewrite.add_argument("target", help="Path to target file")
+
+    # Allow direct fallback: unix_primitives.py <target>
+    parser.add_argument("target_file", nargs="?", help="Direct target file path (defaults to scan)")
+
     args = parser.parse_args()
 
-    target_path = os.path.abspath(os.path.expanduser(args.target))
+    # Determine command and target
+    cmd = args.command
+    target = getattr(args, "target", None) or args.target_file
+
+    if not target:
+        parser.print_help()
+        sys.exit(1)
+
+    target_path = os.path.abspath(os.path.expanduser(target))
     if not os.path.exists(target_path):
         print(f"Error: Target file not found: {target_path}", file=sys.stderr)
         sys.exit(1)
@@ -257,5 +301,17 @@ def main():
     report = format_scan_report(target_path, findings, total_lines)
     print(report)
 
+    if cmd == "convert":
+        out_path = getattr(args, "output", None) or get_next_increment_path(target_path)
+        print(f"=== Non-Destructive Conversion Target ===")
+        print(f"Destination: {out_path}")
+        print(f"Original file remains untouched: {target_path}")
+    elif cmd == "rewrite":
+        backup_path = f"{target_path}.original.md"
+        print(f"=== In-Place Rewrite Target ===")
+        print(f"Target: {target_path}")
+        print(f"Backup destination: {backup_path}")
+
 if __name__ == "__main__":
     main()
+
