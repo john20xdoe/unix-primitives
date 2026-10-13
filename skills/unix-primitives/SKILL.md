@@ -86,6 +86,12 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
      python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py
      ```
      The engine auto-detects local `.agents/` folder, `CLAUDE.md`, `.cursorrules`, or `README.md`.
+   * **Frontmatter & Pipe Invariant**: The scanner automatically ignores YAML frontmatter metadata (`--- ... ---`). For speculative snippet testing, supports direct strings or Unix pipes without inline Python scripting:
+     ```bash
+     python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py scan --text "<snippet>" --score-only
+     # or via pipe:
+     echo "<markdown>" | python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py scan - --score-only
+     ```
 3. **Mandatory First-Turn Report Protocol**:
    The agent MUST ALWAYS deliver the complete scan report in that initial turn—**NEVER** wait for the user to ask follow-up questions:
    * **Pre-Training Friction Audit**: Numeric friction scores, detected anti-patterns, and mapped canonical primitives.

@@ -187,10 +187,18 @@ Overflow: drop intermediate lines -> emit: "[... skipped M lines ...]\\n" + tail
     }
 ]
 
-def scan_text(text: str) -> List[Dict]:
+def strip_frontmatter(text: str) -> str:
+    """Strip YAML frontmatter (--- ... ---) from start of file so metadata doesn't trigger false positives."""
+    match = re.match(r"^\s*---\s*\n[\s\S]*?\n---\s*(?:\n|$)", text)
+    if match:
+        return text[match.end():]
+    return text
+
+def scan_text(text: str, strip_fm: bool = True) -> List[Dict]:
+    body = strip_frontmatter(text) if strip_fm else text
     findings = []
     for p in PATTERNS:
-        matches = list(re.finditer(p["regex"], text))
+        matches = list(re.finditer(p["regex"], body))
         if matches:
             findings.append({
                 "pattern": p,
@@ -271,7 +279,8 @@ def calculate_friction_score(findings: List[Dict], total_lines: int) -> int:
 
 def classify_file_suitability(content: str, rel_path: str, findings: List[Dict]) -> Dict:
     finding_ids = {f["pattern"]["id"] for f in findings}
-    lines_lower = content.lower()
+    body = strip_frontmatter(content)
+    lines_lower = body.lower()
     
     detected_primitives: Dict[str, str] = {}
     
@@ -791,9 +800,11 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze or refactor prompts into canonical Unix & CS primitives.")
     subparsers = parser.add_subparsers(dest="command")
 
-    # scan (supports single file or local .agents folder)
-    p_scan = subparsers.add_parser("scan", help="Scan file or local .agents/ folder for friction report (default)")
-    p_scan.add_argument("target", nargs="?", help="Path to file or local .agents/ directory (defaults to auto-detection)")
+    # scan (supports single file, local .agents folder, stdin, or raw text)
+    p_scan = subparsers.add_parser("scan", help="Scan file, stdin, or local .agents/ folder for friction report (default)")
+    p_scan.add_argument("target", nargs="?", help="Path to file, directory, or '-' for stdin (defaults to auto-detection)")
+    p_scan.add_argument("--text", help="Scan raw text snippet directly instead of file path")
+    p_scan.add_argument("--score-only", action="store_true", help="Print only numeric friction score and match count")
 
     # delta (compare original vs rewritten score)
     p_delta = subparsers.add_parser("delta", help="Compute friction score delta between original and rewritten file")
@@ -824,6 +835,27 @@ def main():
         sys.exit(0)
 
     target = getattr(args, "target", None)
+    raw_text = getattr(args, "text", None)
+    score_only = getattr(args, "score_only", False)
+
+    # Direct raw text scanning or stdin (-)
+    if cmd == "scan" and (raw_text is not None or target == "-"):
+        if raw_text is not None:
+            content = raw_text
+            target_path = "<raw-text>"
+        else:
+            content = sys.stdin.read()
+            target_path = "<stdin>"
+
+        total_lines = len(content.splitlines())
+        findings = scan_text(content)
+        if score_only:
+            score = calculate_friction_score(findings, total_lines)
+            print(f"Friction Score: {score}/100 ({len(findings)} anti-pattern matches)")
+        else:
+            report = format_scan_report(target_path, findings, total_lines, content)
+            print(report)
+        sys.exit(0)
 
     if not cmd or (cmd == "scan" and not target):
         cmd = "scan"
@@ -865,6 +897,12 @@ def main():
 
     total_lines = len(content.splitlines())
     findings = scan_text(content)
+
+    if cmd == "scan" and score_only:
+        score = calculate_friction_score(findings, total_lines)
+        print(f"Friction Score: {score}/100 ({len(findings)} anti-pattern matches)")
+        sys.exit(0)
+
     report = format_scan_report(target_path, findings, total_lines, content)
     print(report)
 
