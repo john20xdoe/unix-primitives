@@ -33,7 +33,7 @@ Transforms fragile natural-language prompts, numbered checklists, and zero-frequ
 * `/unix-primitives scan <filepath | .agents-folder>`: Explicit friction audit. (Restricted to local workspaces; rejects global paths).
 * `/unix-primitives delta <original> <rewritten>`: Compute friction score delta, percentage reduction, and resolved primitives.
 * `/unix-primitives convert <filepath>`: Non-destructive conversion. Writes refactored output to `<filepath>.NN.md` (e.g. `CLAUDE.01.md`), leaving original untouched.
-* `/unix-primitives rewrite <filepath>`: In-place rewrite. Saves backup to `<filepath>.original.md` and updates original file.
+* `/unix-primitives rewrite <filepath>`: In-place rewrite. Saves backup to `<filepath>_original` (e.g. `.md_original` to prevent duplicate prompt discovery) and updates original file.
 * `/unix-primitives generate <task description>`: Generate brand-new skill, prompt, workflow, or ruleset architected entirely with canonical formalisms.
 
 
@@ -135,7 +135,7 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
    ```
 2. **Determine Target Destination**:
    * **`convert` (Default — Non-Destructive)**: Generates refactored output in `<path>.NN.md` (e.g. `CLAUDE.01.md`, `README.01.md`). The original file remains untouched.
-   * **`rewrite` (In-Place)**: Saves backup to `<path>.original.md` before overwriting `<path>`.
+   * **`rewrite` (In-Place)**: Saves backup to `<path>_original` (e.g. `<path>.md_original` to prevent duplicate prompt discovery) before overwriting `<path>`.
 3. **Refactor Invariants**:
    * Replace linear instructions with backward-chaining Makefile targets or explicit FSMs.
    * Replace mutable progress tracking with `/etc/init.d`-style disk latches and RFC 822 headers.

@@ -9,6 +9,7 @@ anti-patterns and reports or maps them to canonical Unix & CS formalisms.
 import sys
 import os
 import re
+import shutil
 import argparse
 from typing import List, Dict, Optional
 
@@ -632,6 +633,10 @@ def get_next_increment_path(target_path: str) -> str:
     next_num = max(existing_nums, default=0) + 1
     return os.path.join(dir_name, f"{stem}.{next_num:02d}{ext}")
 
+def get_backup_path(target_path: str) -> str:
+    """Return backup path with '_original' suffix so Gemini/Antigravity ignores it during prompt discovery."""
+    return f"{target_path}_original"
+
 def auto_detect_target() -> Optional[str]:
     # 1. Local .agents directory
     if os.path.isdir(".agents"):
@@ -821,8 +826,8 @@ def main():
     p_convert.add_argument("target", help="Path to target file")
     p_convert.add_argument("--output", help="Custom output path")
 
-    # rewrite (in-place rewrite with <target>.original.md backup)
-    p_rewrite = subparsers.add_parser("rewrite", help="Rewrite file in-place with <target>.original.md backup")
+    # rewrite (in-place rewrite with <target>.md_original backup)
+    p_rewrite = subparsers.add_parser("rewrite", help="Rewrite file in-place with <target>.md_original backup")
     p_rewrite.add_argument("target", help="Path to target file")
 
     args = parser.parse_args()
@@ -912,7 +917,12 @@ def main():
         print(f"Destination: {out_path}")
         print(f"Original file remains untouched: {target_path}")
     elif cmd == "rewrite":
-        backup_path = f"{target_path}.original.md"
+        backup_path = get_backup_path(target_path)
+        if not os.path.exists(backup_path):
+            shutil.copy2(target_path, backup_path)
+            print(f"Created backup: {backup_path}")
+        else:
+            print(f"Existing backup retained: {backup_path}")
         print(f"=== In-Place Rewrite Target ===")
         print(f"Target: {target_path}")
         print(f"Backup destination: {backup_path}")

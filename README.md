@@ -76,7 +76,7 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-primitives audit-prompt [file\|.agents]`** | Emits lean, non-paraphrased subagent instruction bundle with telemetry and classification contract |
 | **`/unix-primitives delta <orig> <new>`** | Evaluates numeric score delta, % friction reduction, and resolved primitives |
 | **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
-| **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.original.md` backup and updates target file |
+| **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.md_original` backup (hides from prompt discovery) and updates target |
 
 ---
 
@@ -163,7 +163,7 @@ Step-by-step walkthrough for first-time users:
   ```text
   /unix-primitives rewrite CLAUDE.md
   ```
-  *(Saves backup to `CLAUDE.md.original.md` and updates `CLAUDE.md`)*.
+  *(Saves backup to `CLAUDE.md_original` and updates `CLAUDE.md`)*.
 
 ---
 
