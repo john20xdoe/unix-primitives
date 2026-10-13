@@ -8,6 +8,10 @@
 > **Platform Compatibility**: The packaged skills (`/unix-*` slash commands) and installer (`install.sh`) currently target the **Google Antigravity / Gemini CLI** agent environment (`~/.gemini/config/skills/`).
 > 
 > *Model Agnosticism*: While the skill bundle packaging targets Antigravity, the core Python engines (`state_manager.py`, `unix_primitives.py`), physical `.state/` disk runlevels, and the 17 Unix/CS formalisms are universal and function across any frontier model or harness (Gemini, Claude, OpenAI, Cursor).
+>
+
+> [!NOTE]
+> This repository is developed with AI assistance, not vibe-coded. All help with further reviewing is deeply-appreciated and welcome.
 
 ---
 
@@ -141,7 +145,7 @@ Step-by-step walkthrough for first-time users:
 # or explicitly with subcommand:
 /unix-primitives scan .agents/
 ```
-*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. Folder scanning is strictly restricted to local workspace `.agents/` directories; global configurations like `~/.gemini` are protected).*
+*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. The scan immediately provides a complete **Makefile Suitability Breakdown** classifying files into high-value Makefile pipelines, Compiler/EBNF/State primitives, and reference documentation, along with actionable next steps).*
 
 #### Refactor Prompts Non-Destructively:
 ```text

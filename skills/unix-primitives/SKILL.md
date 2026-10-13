@@ -71,9 +71,9 @@ Transforms fragile natural-language prompts, numbered checklists, and zero-frequ
 
 ## Execution Protocol
 
-### Mode 0: Default Scan Audit (`/unix-primitives [target]`)
+### Mode 0: Default Scan Audit (`/unix-primitives [target]` or `/unix-primitives scan`)
 
-When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives <target>`):
+When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives <target>`) or explicitly via `scan`:
 1. **Default Action is ALWAYS `scan`**: Do NOT halt execution or query user for a subcommand. Execute the pre-training friction analysis immediately.
 2. **Target Resolution**:
    * If target path is supplied (`/unix-primitives <path>`), scan that target:
@@ -85,7 +85,14 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
      python3 ~/.gemini/config/skills/unix-primitives/scripts/unix_primitives.py
      ```
      The engine auto-detects local `.agents/` folder, `CLAUDE.md`, `.cursorrules`, or `README.md`.
-3. Present the resulting friction report and identify any high-friction anti-patterns detected.
+3. **Mandatory First-Turn Report Protocol**:
+   The agent MUST ALWAYS deliver the complete scan report in that initial turn—**NEVER** wait for the user to ask follow-up questions:
+   * **Pre-Training Friction Audit**: Numeric friction scores, detected anti-patterns, and mapped canonical primitives.
+   * **Makefile Suitability Breakdown**:
+     - *High-Value Makefile Candidates*: Multi-step command sequences, build/test pipelines, and file artifact generators.
+     - *Better as Compiler / EBNF / State Primitives (Not Makefiles)*: Code review rules (`error[SCAR-XX]`), format/pause gates (RFC 5234 EBNF), task tracking (SysV `.state/` latches), contracts (`@requires`/`@ensures`), and retry loops (Circuit Breaker `k=2`).
+     - *Preserved as Domain Reference / Invariants*: Pure architecture specs, technology stacks, and domain conventions.
+   * **Actionable Recommendations**: Exact commands to run next (e.g. `/unix-primitives convert <path>`, `/unix-init <ticket> <title>`).
 
 ---
 

@@ -16,7 +16,7 @@ PATTERNS = [
     {
         "id": "MAKEFILE_DAG",
         "name": "Imperative Execution Checklist / GOTO Loop",
-        "regex": r"(?i)(step\s*\d+.*(?:then|go\s*to\s*step|return\s*to\s*step)|1\.\s+First.*2\.\s+Second.*3\.\s+Third)",
+        "regex": r"(?i)(?:step\s*\d+[:\.]?[\s\S]{1,60}(?:then|next|after|goto|return\s*to)|(?:\b1\.\s+[^\n]+(?:\n\s*2\.\s+[^\n]+)+)|(?:first\b[\s\S]{1,60}\bthen\b[\s\S]{1,60}\b(?:finally|after))|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)|(?:before\s+(?:proceeding|moving\s+to|continuing)|prerequisite|depends\s+on\s+step))",
         "canonical": "GNU Makefile DAG (target: prerequisites, .PHONY)",
         "explanation": "Replace linear checklist with backward-chaining Makefile targets and file mtime invalidation.",
         "snippet": """.PHONY: finish ci-gate
@@ -27,7 +27,7 @@ ci-gate: test-green lint-green"""
     {
         "id": "SYSV_INITD",
         "name": "Mutable Progress State / Compaction Amnesia",
-        "regex": r"(?i)(keep\s+a\s+(?:progress|todo)\.md|update\s+(?:progress|todo)\.md|track\s+steps\s+in\s+markdown)",
+        "regex": r"(?i)(?:-\s*\[[ xX]?\]|(?:track|maintain|update|log|record)\s+(?:your\s+)?(?:progress|status|state|tasks?|todos?|checklist|steps?|scratchpad)|#+\s*(?:tasks?|todo|progress|checklist|current\s+state)|(?:mark\s+(?:tasks?|steps?|items?)\s+as\s+(?:done|complete)|check\s+off)|(?:keep\s+track\s+of|remember\s+(?:what|which)\s+steps|scratchpad|memory\s+bank))",
         "canonical": "SysV /etc/init.d Runlevels (00_... -> 99_...) + RFC 822 Headers",
         "explanation": "Externalize state to disk-backed immutable lexical latches with RFC 822 key-value headers.",
         "snippet": """state/
@@ -39,7 +39,7 @@ ci-gate: test-green lint-green"""
     {
         "id": "PROCESS_ISOLATION",
         "name": "Unbounded Context Subagent Delegation",
-        "regex": r"(?i)(spawn\s+a\s+subagent\s+when\s+needed|subagents?\s+to\s+explore.*clean\s+up)",
+        "regex": r"(?i)(?:\b(?:subagents?|sub-agents?|child\s+agents?|worker\s+agents?)\b|(?:spawn|delegate\s+to)\s+(?:an?\s+)?(?:subagent|child\s+agent|worker|agent)|(?:clean\s+up|delete|remove)\s+(?:temporary|temp|scratch)\s+(?:files?|artifacts?))",
         "canonical": "Unix Process Control (fork() / waitpid() / trap EXIT)",
         "explanation": "Treat process boundaries as arena garbage collectors. Retain compact orchestrator context (<30k tokens).",
         "snippet": """PID 1 (Orchestrator): fork(role="Archaeology") -> waitpid()
@@ -48,7 +48,7 @@ Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0"""
     {
         "id": "EBNF_GRAMMAR",
         "name": "Unconstrained Response Output / Gate Conflict",
-        "regex": r"(?i)(format\s+your\s+output\s+strictly|never\s+call\s+a\s+tool\s+if\s+asking|do\s+not\s+emit\s+tools?\s+while\s+pausing)",
+        "regex": r"(?i)(?:(?:format|respond|output)\s+(?:only\s+as|strictly|must\s+be)\s+(?:in|as)?\s*(?:json|xml|yaml|markdown|csv)|(?:do\s+not\s+(?:include|emit|output)\s+(?:any\s+)?(?:prose|text|comments?|explanation)|raw\s+json\s+only)|(?:wait\s+for\s+(?:user|human)\s+(?:confirmation|approval|response)|stop\s+and\s+ask|pause\s+before|ask\s+(?:the\s+)?user\s+before)|(?:never\s+call\s+tools?\s+(?:when|while|if)\s+asking|do\s+not\s+call\s+tools?\s+and\s+ask))",
         "canonical": "RFC 5234 EBNF Grammar (Strict Mutual Exclusion)",
         "explanation": "Constrain turn response structure using production rules with hard XOR exclusivity.",
         "snippet": """turn_response ::= status_header "\\n\\n" (tool_action | pause_gate)
@@ -57,7 +57,7 @@ Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0"""
     {
         "id": "DESIGN_BY_CONTRACT",
         "name": "Sunny-Day / Vague Test Prompting",
-        "regex": r"(?i)(write\s+unit\s+tests.*(?:cover\s+edge\s+cases|handle\s+errors)|ensure\s+edge\s+cases\s+are\s+tested)",
+        "regex": r"(?i)(?:(?:test|cover)\s+(?:all\s+)?(?:edge\s*cases?|corner\s*cases?|boundary|failures?|errors?)|(?:ensure|verify|make\s+sure)\s+(?:that\s+)?(?:all\s+)?tests?\s+pass|(?:write\s+(?:unit\s+)?tests?|tdd|test-driven)\s+(?:first|before|for\s+every)|(?:acceptance\s+criteria|preconditions?|postconditions?|invariants?))",
         "canonical": "Design-by-Contract (@requires, @ensures) + QuickCheck Laws",
         "explanation": "Specify formal Hoare pre/post conditions and algebraic laws (idempotence, round-trip) to kill boundary mutants.",
         "snippet": """@requires tokens > 0
@@ -68,7 +68,7 @@ QuickCheck Laws: idempotence, round-trip, boundary probe"""
     {
         "id": "TWO_PHASE_COMMIT",
         "name": "Unhedged Multi-File / Monorepo Refactoring",
-        "regex": r"(?i)(refactor\s+across\s+packages.*don'?t\s+leave\s+broken|update\s+all\s+files.*without\s+breaking)",
+        "regex": r"(?i)(?:refactor(?:ing)?\s+across\s+(?:multiple\s+files|modules|packages)|(?:do\s+not|never)\s+leave\s+(?:the\s+)?(?:codebase|repo|build|tests?)\s+(?:broken|failing|inconsistent)|(?:atomic\s+(?:changes?|updates?|edits?|commits?)|all\s+or\s+nothing\s+changes?))",
         "canonical": "Database WAL + Two-Phase Commit (2PC: PREPARE -> COMMIT/ROLLBACK)",
         "explanation": "Enforce atomic cross-package mutations. Commit iff all participants vote PREPARED, else full ROLLBACK.",
         "snippet": """PHASE 1 (PREPARE): Verify scratch worktree per participant
@@ -77,7 +77,7 @@ PHASE 2 (DECIDE): If all PREPARED -> COMMIT, else ROLLBACK"""
     {
         "id": "CIRCUIT_BREAKER",
         "name": "Apology Death Spiral / Unbounded Retries",
-        "regex": r"(?i)(if\s+(?:it|tests?)\s+fails?,?\s+try\s+(?:again|a\s+couple\s+times|to\s+fix)|retry\s+until\s+working)",
+        "regex": r"(?i)(?:(?:if\s+(?:it|tests?|build|command)\s+fails?|on\s+failure)[\s\S]{1,60}(?:try\s+again|retry|keep\s+trying|fix\s+(?:it|the\s+error)|re-run)|(?:retry\s+until|repeat\s+until|loop\s+until|try\s+up\s+to\s+\d+\s+times)|(?:if\s+(?:you\s+get\s+)?stuck|when\s+stuck|after\s+\d+\s+failures))",
         "canonical": "Distributed Circuit Breaker FSM (CLOSED -> OPEN) + Idempotency Keys",
         "explanation": "Halt repetitive retry loops after k=2 failures. Trip to OPEN state and escalate immediately.",
         "snippet": """threshold: k=2
@@ -86,7 +86,7 @@ If failures >= 2: STATE = OPEN -> HARD HALT. Suppress retry. Escalate to human."
     {
         "id": "GIT_BISECT",
         "name": "Linear Flailing / Guess-Based Debugging",
-        "regex": r"(?i)(figure\s+out\s+why\s+(?:this|the)\s+test\s+is\s+failing|find\s+which\s+commit\s+broke)",
+        "regex": r"(?i)(?:figure\s+out\s+why\s+(?:this|the|it)|find\s+(?:which\s+commit|what)\s+broke|locate\s+(?:the\s+)?regression|trace\s+(?:the\s+)?root\s+cause|binary\s+search\s+commits)",
         "canonical": "git bisect (Logarithmic Binary Search O(log2 N))",
         "explanation": "Partition causal search space into binary halves using midpoint probes rather than linear scans.",
         "snippet": """mid = (low + high) // 2
@@ -95,7 +95,7 @@ Probe mid -> adjust bounds -> converge in ceil(log2 N) steps."""
     {
         "id": "LKML_PATCH_SERIES",
         "name": "Vague Commit Decomposition",
-        "regex": r"(?i)(break\s+changes\s+into\s+clean\s+commits|make\s+logical\s+commits)",
+        "regex": r"(?i)(?:(?:clean|logical|atomic|small)\s+commits?|break\s+(?:down\s+)?changes\s+into\s+commits|commit\s+messages?\s+(?:guidelines?|format|convention)|conventional\s+commits?|\b(?:feat|fix|chore|refactor|docs|test)\s*\(?[^)]*\)?\s*:)",
         "canonical": "LKML [PATCH 0/N] Series + git rebase --exec",
         "explanation": "Require topological commit series where every intermediate commit independently compiles and tests pass.",
         "snippet": """[PATCH 0/N]: Architecture DAG
@@ -106,7 +106,7 @@ Invariant: git rebase --exec "make test" passes on every commit."""
     {
         "id": "COMPILER_DIAGNOSTICS",
         "name": "Polite / Superficial Code Review",
-        "regex": r"(?i)(review\s+code\s+carefully|check\s+code\s+for\s+bugs\s+before\s+submitting)",
+        "regex": r"(?i)(?:code\s*review|review\s+(?:the\s+)?(?:code|changes?|diff|pr|pull\s*request)|check\s+(?:code\s+)?for\s+(?:bugs?|errors?|issues?|code\s+smells?|regressions?)|verify\s+(?:code\s+quality|clean\s+code|correctness))",
         "canonical": "Multi-Pass Compiler Diagnostics Pipeline (error[SCAR-XX])",
         "explanation": "Replace peer compliments with structured static analysis passes (AST -> Lifetimes -> Blast Radius).",
         "snippet": """error[SCAR-XX]: <defect summary>
@@ -118,7 +118,7 @@ Invariant: git rebase --exec "make test" passes on every commit."""
     {
         "id": "STREAM_DEMUX",
         "name": "Mixed Data Payload & Human Prose",
-        "regex": r"(?i)(output\s+json.*(?:feel\s+free\s+to\s+explain|add\s+your\s+thoughts)|mix\s+(?:data|json)\s+with\s+(?:text|comments))",
+        "regex": r"(?i)(?:output\s+(?:json|yaml|data)[\s\S]{1,60}(?:explain|comments?|notes?|thoughts?)|mix\s+(?:data|json)\s+with\s+(?:text|comments?)|(?:return\s+only\s+(?:the\s+)?(?:code|diff|patch|json)|no\s+conversational\s+(?:text|filler|comments?)))",
         "canonical": "POSIX Stream Demux (stdout FD 1 vs stderr FD 2)",
         "explanation": "Strictly segregate machine-parsable payloads (stdout) from diagnostic notes (stderr).",
         "snippet": """stdout (FD 1): Pure payload (raw JSON / diff / AST).
@@ -128,7 +128,7 @@ exit code: 0 on success, >0 on failure."""
     {
         "id": "POSIX_SIGNALS",
         "name": "Vague Teardown / Interruption Handling",
-        "regex": r"(?i)(if\s+user\s+(?:cancels|stops|interrupts).*finish\s+(?:up\s+nicely|cleanly)|handle\s+cancellation\s+gracefully)",
+        "regex": r"(?i)(?:if\s+(?:user\s+)?(?:cancels|stops|aborts|interrupts)|handle\s+(?:cancellation|interruption|shutdown)|graceful\s+(?:shutdown|teardown|exit)|clean\s+up\s+on\s+exit)",
         "canonical": "POSIX Signal Handlers (SIGINT, SIGTERM, SIGHUP)",
         "explanation": "Bind interruptions to deterministic signal traps: SIGINT (checkpoint), SIGTERM (rollback & clean exit).",
         "snippet": """SIGINT  -> trap checkpoint_and_pause: flush state to `99_next_action.md`
@@ -137,7 +137,7 @@ SIGTERM -> trap rollback_and_exit: rollback uncommitted WAL, exit 0"""
     {
         "id": "FILE_LOCKING",
         "name": "Unsynchronized Concurrent Agent Writes",
-        "regex": r"(?i)(make\s+sure\s+(?:subagents|agents)\s+don'?t\s+overwrite|avoid\s+conflicting\s+edits\s+between\s+agents)",
+        "regex": r"(?i)(?:concurrent\s+(?:writes?|edits?|agents?)|avoid\s+(?:conflicting\s+edits?|race\s+conditions?|concurrent\s+conflicts?)|make\s+sure\s+(?:agents?|subagents?)\s+don'?t\s+overwrite|file\s+locks?)",
         "canonical": "Advisory File Locking (flock(2) / <file>.lock)",
         "explanation": "Enforce atomic lockfile acquisition before mutating files across concurrent subagents.",
         "snippet": """acquire_lock("<file>.lock", timeout_ms=3000)
@@ -147,7 +147,7 @@ release_lock("<file>.lock")"""
     {
         "id": "FAIL_FAST_SHELL",
         "name": "Permissive / Silent Command Error Swallowing",
-        "regex": r"(?i)(run\s+these\s+commands.*if\s+anything\s+fails\s+stop|execute\s+steps\s+and\s+abort\s+on\s+error)",
+        "regex": r"(?i)(?:(?:stop|abort|fail|halt)\s+(?:immediately\s+)?(?:if|on)\s+(?:any\s+)?(?:error|failure|command\s+fails)|set\s+-e|fail[- ]fast\s+shell|(?:run|execute)\s+commands?[\s\S]{1,60}(?:abort|stop)\s+on\s+error)",
         "canonical": "set -euo pipefail (Fail-Fast Shell Invariant)",
         "explanation": "Enforce strict zero-tolerance error propagation on script execution.",
         "snippet": """set -euo pipefail
@@ -158,7 +158,7 @@ release_lock("<file>.lock")"""
     {
         "id": "SPECULATIVE_COW",
         "name": "Unhedged In-Place Trial Edits",
-        "regex": r"(?i)(try\s+editing\s+to\s+see\s+if\s+it\s+works.*undo\s+if\s+fails|speculative\s+change.*revert\s+if)",
+        "regex": r"(?i)(?:try\s+(?:an?\s+)?edit[\s\S]{1,60}(?:undo|revert)|speculative\s+changes?|git\s+worktree|scratch\s+worktree|temporary\s+branch[\s\S]{1,60}revert)",
         "canonical": "Copy-On-Write Scratch Worktrees (git worktree)",
         "explanation": "Isolate experimental mutations in ephemeral git worktree; fast-forward merge only on test pass.",
         "snippet": """git worktree add -b scratch/tx ../scratch-tx HEAD
@@ -168,7 +168,7 @@ release_lock("<file>.lock")"""
     {
         "id": "LEAST_PRIVILEGE",
         "name": "Vague Role-Based Behavioral Pleading",
-        "regex": r"(?i)(you\s+are\s+an\s+explorer.*only\s+look.*don'?t\s+(?:touch|modify)|read-only\s+mode.*don'?t\s+change)",
+        "regex": r"(?i)(?:(?:do\s+not|never)\s+(?:modify|edit|change|touch|write\s+to|delete)\s+(?:any\s+)?(?:files?|code)|read[- ]only\s+mode|only\s+(?:read|look|inspect|explore)|prohibited\s+from\s+(?:editing|modifying|writing))",
         "canonical": "Principle of Least Privilege / Capabilities (chmod r--)",
         "explanation": "Enforce tool restrictions structurally at permission mask level rather than conversational pleading.",
         "snippet": """Capabilities:
@@ -179,7 +179,7 @@ release_lock("<file>.lock")"""
     {
         "id": "RING_BUFFER",
         "name": "Unbounded Log Output / Context Flooding",
-        "regex": r"(?i)(don'?t\s+print\s+too\s+much\s+log|limit\s+log\s+output\s+to\s+save\s+tokens|avoid\s+long\s+terminal\s+dumps)",
+        "regex": r"(?i)(?:(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|save\s+tokens?\b|economize\s+tokens?\b|context\s+(?:bloat|flooding))",
         "canonical": "Circular Ring Buffer / Tail Truncation (logrotate)",
         "explanation": "Cap tool output with constant-bound FIFO ring buffer: retain head (5 lines) + tail (45 lines).",
         "snippet": """Buffer Capacity: N = 50 lines (Ring Buffer)
@@ -201,12 +201,82 @@ def scan_text(text: str) -> List[Dict]:
 def calculate_friction_score(findings: List[Dict], total_lines: int) -> int:
     if not findings:
         return 0
-    raw_score = sum(len(f["matches"]) * 15 for f in findings)
+    raw_score = sum(len(f["matches"]) * 10 for f in findings)
     return min(100, max(15, raw_score))
 
-def format_scan_report(filepath: str, findings: List[Dict], total_lines: int) -> str:
+def classify_file_suitability(content: str, rel_path: str, findings: List[Dict]) -> Dict:
+    finding_ids = {f["pattern"]["id"] for f in findings}
+    lines_lower = content.lower()
+    
+    is_makefile = False
+    makefile_reasons = []
+    
+    if "MAKEFILE_DAG" in finding_ids:
+        is_makefile = True
+        makefile_reasons.append("Sequential execution checklist / workflow GOTO loop")
+    if any(k in lines_lower for k in ["workflow", "pipeline", "execution step", "steps to follow", "build steps", "ci-gate"]):
+        is_makefile = True
+        makefile_reasons.append("Multi-stage process / pipeline stages")
+    if re.search(r"```(?:bash|sh)\b[\s\S]*?(?:npm|pytest|cargo|make|python3|pip|docker|git|mvn|gradle)", content):
+        is_makefile = True
+        makefile_reasons.append("Chains shell commands / test / build / lint execution targets")
+    if "FAIL_FAST_SHELL" in finding_ids:
+        is_makefile = True
+        makefile_reasons.append("Shell execution requiring fail-fast dependency DAG")
+
+    alt_primitives = []
+    if "SYSV_INITD" in finding_ids or re.search(r"-\s*\[[ xX]?\]", content) or any(k in lines_lower for k in ["todo", "checklist", "progress", "task list", "scratchpad"]):
+        alt_primitives.append({
+            "name": "SysV Runlevels + RFC 822 (.state/)",
+            "reason": "Mutable task tracking / checklists -> Externalize to physical disk latches (00_ to 99_) to survive 200k+ compaction"
+        })
+    if "EBNF_GRAMMAR" in finding_ids or "STREAM_DEMUX" in finding_ids or any(k in lines_lower for k in ["json only", "format strictly", "pause", "wait for user", "stop and ask"]):
+        alt_primitives.append({
+            "name": "RFC 5234 EBNF Grammars",
+            "reason": "Output formatting & pause gates -> Enforce hard XOR mutual exclusion between pause gates and tool execution"
+        })
+    if "COMPILER_DIAGNOSTICS" in finding_ids or any(k in lines_lower for k in ["code review", "check for bugs", "code quality", "lint rules"]):
+        alt_primitives.append({
+            "name": "Multi-Pass Compiler Diagnostics (error[SCAR-XX])",
+            "reason": "Code review / quality checklists -> Replace polite prose with structured AST/lifetime passes and exit codes"
+        })
+    if "DESIGN_BY_CONTRACT" in finding_ids or any(k in lines_lower for k in ["unit test", "edge case", "acceptance criteria", "invariants"]):
+        alt_primitives.append({
+            "name": "Design-by-Contract (@requires, @ensures)",
+            "reason": "Test prompting -> Anchor with formal Hoare pre/post conditions and QuickCheck laws"
+        })
+    if "CIRCUIT_BREAKER" in finding_ids or any(k in lines_lower for k in ["retry", "if failed", "try again", "when stuck"]):
+        alt_primitives.append({
+            "name": "Circuit Breaker FSM (k=2)",
+            "reason": "Retry / failure recovery -> Enforce CLOSED -> OPEN trip state machine after k=2 failures to stop apology loops"
+        })
+    if "PROCESS_ISOLATION" in finding_ids or any(k in lines_lower for k in ["subagent", "delegate"]):
+        alt_primitives.append({
+            "name": "Unix Process Control (fork() / waitpid())",
+            "reason": "Subagent delegation -> Ephemeral child process boundary with arena garbage collection on exit"
+        })
+    if "LEAST_PRIVILEGE" in finding_ids or any(k in lines_lower for k in ["read-only", "do not modify", "forbidden"]):
+        alt_primitives.append({
+            "name": "Least Privilege (chmod r--)",
+            "reason": "Read-only file pleading -> Enforce structural capability permissions rather than conversational pleading"
+        })
+
+    is_reference = not is_makefile and not alt_primitives and len(findings) == 0
+
+    return {
+        "rel_path": rel_path,
+        "is_makefile": is_makefile,
+        "makefile_reasons": makefile_reasons,
+        "alt_primitives": alt_primitives,
+        "is_reference": is_reference,
+    }
+
+def format_scan_report(filepath: str, findings: List[Dict], total_lines: int, content: str = "") -> str:
     score = calculate_friction_score(findings, total_lines)
-    status = "CRITICAL: Highly Fragile" if score > 60 else "MODERATE: Can be hardened" if score > 20 else "CLEAN"
+    status = "CRITICAL: Highly Fragile" if score > 60 else "MODERATE: Can be hardened" if score > 20 else "LOW: Minor friction detected" if score > 0 else "CLEAN: Aligns with canonical CS primitives"
+    rel_path = os.path.basename(filepath)
+    suit = classify_file_suitability(content, rel_path, findings)
+
     lines = [
         f"=== Pre-Training Friction Analysis ===",
         f"Target: {filepath}",
@@ -215,27 +285,67 @@ def format_scan_report(filepath: str, findings: List[Dict], total_lines: int) ->
         f"Fragile Anti-Patterns Found: {len(findings)}\n"
     ]
     
-    if not findings:
-        lines.append("No fragile prompt anti-patterns detected. File aligns well with canonical CS primitives.")
-        return "\n".join(lines)
-        
-    for idx, f in enumerate(findings, 1):
-        p = f["pattern"]
-        lines.append(f"[{idx}] {p['name']} (ID: {p['id']})")
-        lines.append(f"    Detected matches: {len(f['matches'])}")
-        for m in f["matches"][:3]:
-            snippet = m.strip().replace("\n", " ")
-            if len(snippet) > 80:
-                snippet = snippet[:77] + "..."
-            lines.append(f"      - \"{snippet}\"")
-        lines.append(f"    Mapped Canonical CS Primitive:")
-        lines.append(f"      -> {p['canonical']}")
-        lines.append(f"    Rationale: {p['explanation']}")
-        lines.append(f"    Suggested Template:")
-        for s_line in p["snippet"].strip().split("\n"):
-            lines.append(f"        {s_line}")
-        lines.append("")
-        
+    if findings:
+        for idx, f in enumerate(findings, 1):
+            p = f["pattern"]
+            lines.append(f"[{idx}] {p['name']} (ID: {p['id']})")
+            lines.append(f"    Detected matches: {len(f['matches'])}")
+            for m in f["matches"][:3]:
+                snippet = m.strip().replace("\n", " ")
+                if len(snippet) > 80:
+                    snippet = snippet[:77] + "..."
+                lines.append(f"      - \"{snippet}\"")
+            lines.append(f"    Mapped Canonical CS Primitive:")
+            lines.append(f"      -> {p['canonical']}")
+            lines.append(f"    Rationale: {p['explanation']}")
+            lines.append(f"    Suggested Template:")
+            for s_line in p["snippet"].strip().split("\n"):
+                lines.append(f"        {s_line}")
+            lines.append("")
+    else:
+        lines.append("No direct syntactic anti-patterns detected in lexical scan.")
+        lines.append("Evaluating architectural suitability from document structure...\n")
+
+    lines.append("=== Makefile Suitability Breakdown ===")
+    lines.append("")
+    lines.append("* High-Value Makefile Candidates (File artifact pipelines & DAGs):")
+    if suit["is_makefile"]:
+        for r in suit["makefile_reasons"]:
+            lines.append(f"  - Pipeline/workflow candidate: {r}")
+        lines.append("    -> Recommendation: Refactor execution sequence into GNU Makefile DAG (.PHONY, test, lint, ci-gate).")
+    else:
+        lines.append("  - None: File does not contain multi-step build/test commands or file artifact pipelines.")
+
+    lines.append("")
+    lines.append("* Better as Compiler / EBNF / State Primitives (Not Makefiles):")
+    if suit["alt_primitives"]:
+        for p in suit["alt_primitives"]:
+            lines.append(f"  - {p['name']}:")
+            lines.append(f"      {p['reason']}")
+    else:
+        lines.append("  - None: No state tracking, review checklists, or formatting gates detected.")
+
+    lines.append("")
+    lines.append("* Preserved as Domain Reference / Invariants:")
+    if suit["is_reference"]:
+        lines.append("  - Pure domain documentation & repo guidelines. Preserve as markdown reference.")
+    else:
+        lines.append("  - Project architecture, technology stack, and business rules remain as markdown context.")
+
+    lines.append("")
+    lines.append("=== Actionable Recommendations ===")
+    if suit["is_makefile"]:
+        lines.append(f"1. Refactor workflow into a GNU Makefile DAG:")
+        lines.append(f"   -> /unix-primitives convert {filepath}")
+    elif suit["alt_primitives"] or findings:
+        lines.append(f"1. Refactor file non-destructively into canonical CS formalisms:")
+        lines.append(f"   -> /unix-primitives convert {filepath}")
+    else:
+        lines.append(f"1. File is already well-structured or serves as reference documentation.")
+
+    lines.append(f"2. Initialize physical disk state runtime (.state/) to survive context compaction:")
+    lines.append(f"   -> /unix-init <ticket-id> \"<task-title>\"")
+
     return "\n".join(lines)
 
 def is_global_path(path: str) -> bool:
@@ -289,17 +399,19 @@ def scan_directory(dir_path: str) -> None:
         total_findings_count += len(findings)
         total_lines_count += lines
         rel_path = os.path.relpath(fpath, os.path.dirname(dir_path))
+        suit = classify_file_suitability(content, rel_path, findings)
         file_results.append({
             "path": fpath,
             "rel_path": rel_path,
             "lines": lines,
             "score": score,
-            "findings": findings
+            "findings": findings,
+            "suit": suit
         })
 
     avg_score = sum(r["score"] for r in file_results) // len(file_results) if file_results else 0
     max_score = max((r["score"] for r in file_results), default=0)
-    status = "CRITICAL: Highly Fragile" if max_score > 60 else "MODERATE: Can be hardened" if max_score > 20 else "CLEAN"
+    status = "CRITICAL: Highly Fragile" if max_score > 60 else "MODERATE: Can be hardened" if max_score > 20 else "LOW: Minor friction detected" if max_score > 0 else "CLEAN: Aligns with canonical CS primitives"
 
     print("=== Local .agents/ Workspace Friction Audit ===")
     print(f"Target Directory: {dir_path}")
@@ -321,6 +433,51 @@ def scan_directory(dir_path: str) -> None:
             for f_idx, f in enumerate(r["findings"][:3], 1):
                 p = f["pattern"]
                 print(f"  [{f_idx}] {p['name']} -> Use {p['canonical']}")
+
+    # Makefile & Primitive Suitability Breakdown
+    print("\n=== Makefile Suitability Breakdown ===")
+    makefile_candidates = [r for r in file_results if r["suit"]["is_makefile"]]
+    alt_candidates = [r for r in file_results if r["suit"]["alt_primitives"]]
+    ref_candidates = [r for r in file_results if r["suit"]["is_reference"]]
+
+    print("\n* High-Value Makefile Candidates (File artifact pipelines & DAGs):")
+    if makefile_candidates:
+        for r in makefile_candidates:
+            reasons = "; ".join(r["suit"]["makefile_reasons"])
+            print(f"  - {r['rel_path']}: {reasons}")
+    else:
+        print("  - None detected: No files contain multi-step build/test command pipelines.")
+
+    print("\n* Better as Compiler / EBNF / State Primitives (Not Makefiles):")
+    if alt_candidates:
+        for r in alt_candidates:
+            print(f"  - {r['rel_path']}:")
+            for p in r["suit"]["alt_primitives"]:
+                print(f"      -> {p['name']}: {p['reason']}")
+    else:
+        print("  - None detected: No standalone rules for state tracking, reviews, or gates.")
+
+    print("\n* Preserved as Domain Reference / Invariants:")
+    if ref_candidates:
+        for r in ref_candidates:
+            print(f"  - {r['rel_path']}: Domain context / guidelines. Keep as markdown reference.")
+    else:
+        print("  - All scanned files contain active behavioral or workflow invariants.")
+
+    print("\n=== Actionable Recommendations ===")
+    step_num = 1
+    if makefile_candidates:
+        top_mk = makefile_candidates[0]
+        print(f"{step_num}. Refactor high-value pipeline into a canonical Makefile DAG:")
+        print(f"   -> /unix-primitives convert {top_mk['rel_path']}")
+        step_num += 1
+    if alt_candidates:
+        top_alt = alt_candidates[0]
+        print(f"{step_num}. Refactor rules/skills into canonical CS primitives:")
+        print(f"   -> /unix-primitives convert {top_alt['rel_path']}")
+        step_num += 1
+    print(f"{step_num}. Initialize physical disk state runtime (.state/) in workspace:")
+    print(f"   -> /unix-init <ticket-id> \"<title>\"")
 
 def get_next_increment_path(target_path: str) -> str:
     dir_name = os.path.dirname(os.path.abspath(target_path))
@@ -423,7 +580,7 @@ def main():
 
     total_lines = len(content.splitlines())
     findings = scan_text(content)
-    report = format_scan_report(target_path, findings, total_lines)
+    report = format_scan_report(target_path, findings, total_lines, content)
     print(report)
 
     if cmd == "convert":
