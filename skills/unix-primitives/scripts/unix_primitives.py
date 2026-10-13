@@ -48,12 +48,16 @@ Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0"""
     },
     {
         "id": "EBNF_GRAMMAR",
-        "name": "Unconstrained Response Output / Gate Conflict",
-        "regex": r"(?i)(?:(?:format|respond|output)\s+(?:only\s+as|strictly|must\s+be)\s+(?:in|as)?\s*(?:json|xml|yaml|markdown|csv)|(?:do\s+not\s+(?:include|emit|output)\s+(?:any\s+)?(?:prose|text|comments?|explanation)|raw\s+json\s+only)|(?:wait\s+for\s+(?:user|human)\s+(?:confirmation|approval|response)|stop\s+and\s+ask|pause\s+before|ask\s+(?:the\s+)?user\s+before)|(?:never\s+call\s+tools?\s+(?:when|while|if)\s+asking|do\s+not\s+call\s+tools?\s+and\s+ask))",
-        "canonical": "RFC 5234 EBNF Grammar (Strict Mutual Exclusion)",
-        "explanation": "Constrain turn response structure using production rules with hard XOR exclusivity.",
+        "name": "Unconstrained Response Output / Gate Conflict / API Hallucination",
+        "regex": r"(?i)(?:(?:format|respond|output)\s+(?:only\s+as|strictly|must\s+be)\s+(?:in|as)?\s*(?:json|xml|yaml|markdown|csv)|(?:do\s+not\s+(?:include|emit|output)\s+(?:any\s+)?(?:prose|text|comments?|explanation)|raw\s+json\s+only)|(?:wait\s+for\s+(?:user|human)\s+(?:confirmation|approval|response)|stop\s+and\s+ask|pause\s+before|ask\s+(?:the\s+)?user\s+before)|(?:never\s+call\s+tools?\s+(?:when|while|if)\s+asking|do\s+not\s+call\s+tools?\s+and\s+ask)|(?:do\s+not|never)\s+hallucinate\s+(?:any\s+)?apis?|(?:check|verify)\s+(?:if\s+)?(?:the\s+)?apis?\s+exists?)",
+        "canonical": "RFC 5234 EBNF & Session Types (Strict Mutual Exclusion & Negotiation)",
+        "explanation": "Constrain turn response structure using production rules with hard XOR exclusivity and Flores negotiation (?Assert before ?Promise).",
         "snippet": """turn_response ::= status_header "\\n\\n" (tool_action | pause_gate)
-(* Invariant: tool_action and pause_gate are strictly mutually exclusive *)"""
+(* Invariant: tool_action and pause_gate are strictly mutually exclusive *)
+
+(* Flores Negotiation Grammar: !Customer vs ?Performer *)
+conversation ::= !request ?assert_reality ( ?promise | ?counter_offer | ?decline )
+(* Invariant: ?promise forbidden until ?assert verifies physical API existence *)"""
     },
     {
         "id": "DESIGN_BY_CONTRACT",
@@ -236,9 +240,9 @@ SUBSYSTEMS = [
         "id": "PROTOCOLS_STREAM",
         "num": 4,
         "name": "Protocols & Stream Demux",
-        "canonical": "RFC 5234 EBNF / Stream Demux / Ring Buffer",
+        "canonical": "RFC 5234 EBNF & Session Types / Stream Demux / Ring Buffer",
         "primitives": ["EBNF_GRAMMAR", "STREAM_DEMUX", "RING_BUFFER"],
-        "description": "XOR gate production rules, stdout/stderr segregation, O(1) ring buffers",
+        "description": "XOR gate production rules, Flores turn negotiation (!/?), stdout/stderr demux, O(1) ring buffers",
     },
     {
         "id": "VERIFICATION_DIAGNOSTICS",
@@ -704,7 +708,7 @@ Goal: Semantically audit target prompt/rule files and classify them across the 7
     * LEAST_PRIVILEGE (16): Pleading not to touch files. Invariant: Principle of Least Privilege / Capabilities (chmod r--).
 
 [4] Protocols & Stream Demux:
-    * EBNF_GRAMMAR (4): Output formatting, pause gates. Invariant: RFC 5234 production rules with strict XOR mutual exclusion between pause gate & tools.
+    * EBNF_GRAMMAR (4): Output formatting, pause gates, API hallucination prevention. Invariant: RFC 5234 production rules with strict XOR mutual exclusion between pause gate & tools + Flores negotiation (?Assert before ?Promise).
     * STREAM_DEMUX (11): Mixed JSON payload & human comments. Invariant: POSIX stream demux (stdout FD 1 pure payload vs stderr FD 2 diagnostics).
     * RING_BUFFER (17): Unbounded terminal logs, context flooding. Invariant: Circular ring buffer FIFO (head 5 + tail 45 lines, O(1) bound).
 

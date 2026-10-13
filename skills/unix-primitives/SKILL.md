@@ -53,7 +53,7 @@ Transforms fragile natural-language prompts, numbered checklists, and zero-frequ
 | 1 | Numbered checklists, `IF/ELSE/GOTO Step X` | **GNU Makefile DAG** | `.PHONY`, `target: prerequisites`, mtime artifact invalidation |
 | 2 | Mutable `PROGRESS.md`, in-context todo tracking | **SysV `/etc/init.d` Runlevels + RFC 822** | `00_` to `99_` lexical file latches, `Key: Value` state headers |
 | 3 | Verbose subagent delegation, *"clean up temp files"* | **Unix Process Control** | `fork()`, `waitpid()`, `trap ... EXIT`, arena garbage collection |
-| 4 | Paragraphs begging for strict formatting & pause gates | **RFC 5234 EBNF Grammars** | Production rules with XOR mutual exclusion between gate & tools |
+| 4 | Formatting begging, premature "Certainly!" promises | **RFC 5234 EBNF & Session Types** | Production rules with XOR gate exclusion + Flores negotiation (?Assert before ?Promise) |
 | 5 | *"Make sure you test edge cases and error handling"* | **Design-by-Contract + QuickCheck** | `@requires`, `@ensures`, `@invariant`, Hoare triples, algebraic laws |
 | 6 | *"Don't leave the repo broken across multiple files"* | **Database WAL + Two-Phase Commit (2PC)** | `BEGIN` $\rightarrow$ `PREPARE` $\rightarrow$ verify all $\rightarrow$ `COMMIT` / `ROLLBACK` |
 | 7 | *"Try a couple times; if stuck, stop and ask me"* | **Circuit Breaker FSM + Idempotency Keys** | `k=2` threshold, `CLOSED` $\rightarrow$ `OPEN` trip, immediate hard halt |
@@ -99,7 +99,7 @@ When invoked without a subcommand (e.g. `/unix-primitives` or `/unix-primitives 
      - *[1/7] Build & Execution DAGs*: GNU Makefile DAG (`MAKEFILE_DAG`) for sequential build/test/lint command pipelines.
      - *[2/7] State Persistence & Lifecycle*: SysV `/etc/init.d` Runlevels + RFC 822 (`SYSV_INITD`) for progress tracking / latches, and POSIX Signals (`POSIX_SIGNALS`) for deterministic interruption traps.
      - *[3/7] Process Isolation & Concurrency*: Unix Process Control (`PROCESS_ISOLATION`), Advisory File Locking (`FILE_LOCKING`), and Least Privilege (`LEAST_PRIVILEGE`).
-     - *[4/7] Protocols & Stream Demux*: RFC 5234 EBNF (`EBNF_GRAMMAR`) for XOR gate exclusion, Stream Demux (`STREAM_DEMUX`) for stdout/stderr segregation, and Ring Buffers (`RING_BUFFER`) for $O(1)$ log ceilings.
+     - *[4/7] Protocols & Stream Demux*: RFC 5234 EBNF & Session Types (`EBNF_GRAMMAR`) for XOR gate exclusion and Flores turn negotiation (`!Customer` vs `?Performer`), Stream Demux (`STREAM_DEMUX`) for stdout/stderr segregation, and Ring Buffers (`RING_BUFFER`) for $O(1)$ log ceilings.
      - *[5/7] Verification & Diagnostics*: Design-by-Contract (`DESIGN_BY_CONTRACT`) for Hoare pre/post conditions, and Multi-Pass Compiler Diagnostics (`COMPILER_DIAGNOSTICS`) for structured static review passes.
      - *[6/7] Transaction Safety & Fault Tolerance*: Database WAL + 2PC (`TWO_PHASE_COMMIT`) for atomic multi-file edits, Circuit Breaker FSM (`CIRCUIT_BREAKER`) for $k=2$ loop breaking, Fail-Fast Shell (`FAIL_FAST_SHELL`), and COW Scratch Worktrees (`SPECULATIVE_COW`).
      - *[7/7] Search & Commit Topology*: `git bisect` (`GIT_BISECT`) for $O(\log_2 N)$ partitioning, and LKML `[PATCH 0/N]` Series (`LKML_PATCH_SERIES`) for bisectable commit DAGs.

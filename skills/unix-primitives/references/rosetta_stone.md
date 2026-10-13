@@ -16,7 +16,7 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
   test-green: code-written
   	dart test
   ```
-* **Invariant**: Backward-chaining DAG. Leaf file `mtime` modification invalidates downstream targets; forces rerun without English reminders.
+* **Invariant**: Backward-chaining DAG. Leaf file `mtime` modification invalidates downstream targets; forces rerun without English reminders. Unifies `By-When` commitments with prerequisite colons: `Consuming-Stage (By-When) : Promised-Outcome (Prerequisite)`.
 
 ---
 
@@ -58,17 +58,34 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
 
 ---
 
-### 4. RFC 5234 EBNF (Output Schema & Gate Mutual Exclusion)
-* **Replaces**: *"Format output strictly. Do not call tools if waiting for user input."*
+### 4. RFC 5234 EBNF & Session Types (Output Schema, Gate XOR, & Negotiation Grammar)
+* **Replaces**: *"Format output strictly. Do not call tools if waiting for input. Don't hallucinate nonexistent APIs—if an API doesn't exist, tell me instead of making it up."*
 * **Primitive**:
   ```ebnf
+  (* 1. Turn Gating Grammar *)
   turn_response ::= status_header "\n\n" (tool_action | pause_gate)
   status_header ::= "### STATE: " ("RUNNING" | "BLOCKED" | "DONE")
   tool_action   ::= "[EXEC_TOOL: " tool_name "(" [args] ")]"
   pause_gate    ::= "### [PAUSE_GATE: " gate_id "]\n" prompt_text
   (* Invariant: tool_action and pause_gate are strictly mutually exclusive *)
+
+  (* 2. Binary Session Types & Flores Negotiation Grammar (1986) *)
+  (* ! = Customer (User), ? = Performer (Agent) *)
+  conversation_for_action ::=
+      !request
+      ?assert_witnessed_reality
+      negotiation_branch ;
+
+  negotiation_branch ::=
+        ?promise        execution_phase
+      | ?counter_offer  !revise_or_accept
+      | ?decline        !close_conversation ;
+  (* Preparatory Invariant: ?promise forbidden until ?assert verifies physical code/APIs *)
+  (* Deontic Invariant: Commitment != Entitlement (no unprompted side-effect mutations) *)
   ```
-* **Invariant**: Production rules eliminate parser drift. Enforces hard XOR between autonomous tool dispatch and human pause gate.
+  **Pocket Handshake (For Prompt Headers)**:
+  > *"Role: Performer (`?`). Assert physical reality (`?Assert`) before promising (`?Promise`). If any premise is false or suboptimal, issue a witnessed `?Counter-Offer` or `?Decline` instead of a premature `?Promise`."*
+* **Invariant**: Production rules eliminate parser drift. Enforces hard XOR between autonomous tool dispatch and human pause gates. Gives model formal legal standing to issue a `?Counter-Offer` before opening code fences, mathematically eliminating append-only leaf hallucinations.
 
 ---
 
