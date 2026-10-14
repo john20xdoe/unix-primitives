@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_DIR="${HOME}/.gemini/config/skills"
+TARGET_DIR="${UNIX_PRIMITIVES_TARGET:-${HOME}/.gemini/config/skills}"
 
 MODE="--symlink"
 FORCE=0
@@ -46,19 +46,25 @@ for skill_path in "${SCRIPT_DIR}/skills"/*; do
         
         if [ -L "${dest}" ]; then
             link_target="$(readlink "${dest}" || true)"
-            case "${link_target}" in
-                "${SCRIPT_DIR}"*|*"skills/${skill_name}"*)
-                    rm -f "${dest}"
-                    ;;
-                *)
-                    if [ "${FORCE}" -eq 1 ]; then
-                        mv "${dest}" "${dest}.bak.$(date +%s)"
-                    else
-                        echo "Warning: ${dest} is symlink to external target; skipping (use --force to overwrite)" >&2
-                        continue
-                    fi
-                    ;;
-            esac
+            managed_target="${SCRIPT_DIR}/skills/${skill_name}"
+            if command -v realpath >/dev/null 2>&1; then
+                resolved_link="$(realpath "${dest}" 2>/dev/null || true)"
+                resolved_managed="$(realpath "${managed_target}" 2>/dev/null || true)"
+            else
+                resolved_link="${link_target}"
+                resolved_managed="${managed_target}"
+            fi
+
+            if [ "${link_target}" = "${managed_target}" ] || [ -n "${resolved_managed}" -a "${resolved_link}" = "${resolved_managed}" ]; then
+                rm -f "${dest}"
+            else
+                if [ "${FORCE}" -eq 1 ]; then
+                    mv "${dest}" "${dest}.bak.$(date +%s)"
+                else
+                    echo "Warning: ${dest} is symlink to external target; skipping (use --force to overwrite)" >&2
+                    continue
+                fi
+            fi
         elif [ -e "${dest}" ]; then
             if [ "${FORCE}" -eq 1 ]; then
                 mv "${dest}" "${dest}.bak.$(date +%s)"

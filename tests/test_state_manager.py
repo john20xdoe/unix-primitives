@@ -167,3 +167,29 @@ def test_install_script_safety(tmp_path):
     bak_dirs = list(target_dir.glob("unix-primitives.bak.*"))
     assert len(bak_dirs) >= 1
     assert (bak_dirs[0] / "canary.txt").read_text(encoding="utf-8") == "precious user data"
+
+    # E6: Test external symlink containing substring skills/unix-primitives
+    external_dir = tmp_path / "other" / "skills" / "unix-primitives"
+    external_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "unix-primitives").unlink()
+    (target_dir / "unix-primitives").symlink_to(external_dir)
+
+    res_ext = subprocess.run(
+        ["bash", str(install_sh), "--symlink"],
+        env={**os.environ, "HOME": str(fake_home)},
+        capture_output=True,
+        text=True
+    )
+    # Without force, external symlink must be preserved
+    assert (target_dir / "unix-primitives").resolve() == external_dir.resolve()
+
+    # E7: Test UNIX_PRIMITIVES_TARGET override
+    custom_target = tmp_path / "custom_skills"
+    res_custom = subprocess.run(
+        ["bash", str(install_sh), "--symlink"],
+        env={**os.environ, "UNIX_PRIMITIVES_TARGET": str(custom_target)},
+        capture_output=True,
+        text=True
+    )
+    assert res_custom.returncode == 0
+    assert (custom_target / "unix-primitives").exists()

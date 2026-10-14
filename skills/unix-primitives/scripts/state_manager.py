@@ -3,7 +3,6 @@
 state_manager.py - Physical disk state manager for prompt gravity.
 
 Maintains bounded SysV runlevel disk latches (.state/00_... -> 99_...) in workspaces.
-Guarantees O(1) file count to prevent bloat and staleness.
 Supports named slots, pre-push hook management, and subagent artifact isolation.
 """
 
@@ -15,7 +14,7 @@ import argparse
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 try:
     import fcntl
@@ -37,8 +36,6 @@ def get_skills_source_dir() -> str:
     return os.path.expanduser("~/.gemini/config/skills")
 
 SLOT_ALIASES = {
-    "ticket": 10,
-    "10": 10,
     "plan": 20,
     "20": 20,
     "tdd": 30,
@@ -81,13 +78,13 @@ $(STATE_DIR)/40_impl_green.md: $(STATE_DIR)/30_tdd_red.md
 	@echo "Awaiting implementation verification"
 
 ci-gate: $(STATE_DIR)/40_impl_green.md
-	@python3 {state_manager_path} verify --workspace $(REPO_ROOT)
+	@python3 "{state_manager_path}" verify --workspace "$(REPO_ROOT)"
 
 status:
-	@python3 {state_manager_path} status --workspace $(REPO_ROOT)
+	@python3 "{state_manager_path}" status --workspace "$(REPO_ROOT)"
 
 clean:
-	@python3 {state_manager_path} clean --workspace $(REPO_ROOT)
+	@python3 "{state_manager_path}" clean --workspace "$(REPO_ROOT)"
 """
 
 HOOK_TEMPLATE = """#!/bin/sh
@@ -108,16 +105,15 @@ if [ -x "$0.unix-primitives.bak" ]; then
 fi
 
 STATE_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.state"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 
 if [ -d "$STATE_DIR" ]; then
     echo "=== [unix-primitives] Validating {hook_type} runlevel ==="
-    if [ -f "$STATE_DIR/Makefile" ]; then
-        make -f "$STATE_DIR/Makefile" ci-gate
-        if [ $? -ne 0 ]; then
-            echo "{hook_type} check failed: Active ticket in .state/ has unverified milestones."
-            echo "Local commits remain safe. Fix milestone or run /unix-clean before proceeding."
-            exit 1
-        fi
+    python3 "{state_manager_path}" verify --workspace "$REPO_ROOT"
+    if [ $? -ne 0 ]; then
+        echo "{hook_type} check failed: Active ticket in .state/ has unverified milestones."
+        {failure_msg}
+        exit 1
     fi
 fi
 
@@ -125,15 +121,26 @@ exit 0
 """
 
 
-def _locked_write(path: str, text: str, mode: str = "w") -> None:
+def _locked_write(path: str, text: str, mode: str = "w", lock_path: Optional[str] = None) -> None:
     parent_dir = os.path.dirname(os.path.abspath(path))
     os.makedirs(parent_dir, exist_ok=True)
-    lock_file = os.path.join(parent_dir, ".lock")
+    if lock_path is None:
+        abs_p = os.path.abspath(path)
+        if "/.state" in abs_p:
+            state_idx = abs_p.find("/.state")
+            state_root = abs_p[:state_idx + len("/.state")]
+            lock_path = os.path.join(state_root, ".lock")
+        elif "/.git" in abs_p:
+            git_idx = abs_p.find("/.git")
+            git_root = abs_p[:git_idx + len("/.git")]
+            lock_path = os.path.join(git_root, "unix-primitives.lock")
+        else:
+            lock_path = os.path.join(parent_dir, ".lock")
 
     lock_fd = None
     if fcntl is not None:
         try:
-            lock_fd = open(lock_file, "w")
+            lock_fd = open(lock_path, "w")
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
         except Exception:
             lock_fd = None
@@ -177,12 +184,64 @@ def resolve_slot(slot_identifier: str) -> int:
         return SLOT_ALIASES[key]
     try:
         val = int(key)
-        if val in SLOTS:
+        if val in (20, 30, 40):
             return val
     except ValueError:
         pass
-    print(f"Error: Unknown milestone '{slot_identifier}'. Valid aliases: plan (20), tdd (30), impl (40).", file=sys.stderr)
+    print(f"Error: '{slot_identifier}' is not a stampable milestone (plan|tdd|impl)", file=sys.stderr)
     sys.exit(1)
+
+
+def read_headers(path: str) -> Tuple[Dict[str, str], str]:
+    headers: Dict[str, str] = {}
+    body_lines = []
+    if not os.path.exists(path):
+        return headers, ""
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    in_headers = True
+    for line in lines:
+        if in_headers:
+            if line.strip() == "":
+                in_headers = False
+                continue
+            if ":" in line:
+                k, v = line.split(":", 1)
+                headers[k.strip()] = v.strip()
+            else:
+                in_headers = False
+                body_lines.append(line)
+        else:
+            body_lines.append(line)
+    return headers, "".join(body_lines)
+
+
+def write_headers(path: str, headers: Dict[str, str], body: str = "") -> None:
+    content = ""
+    for k, v in headers.items():
+        content += f"{k}: {v}\n"
+    content += "\n"
+    if body:
+        content += body.lstrip("\n")
+    _locked_write(path, content, mode="w")
+
+
+def update_ticket(workspace: str, field: str, value: str) -> None:
+    state_dir = get_state_dir(workspace)
+    ticket_file = os.path.join(state_dir, SLOTS[10])
+    if not os.path.exists(ticket_file):
+        print(f"Error: {SLOTS[10]} not found in workspace", file=sys.stderr)
+        sys.exit(1)
+
+    normalized_field = field.strip()
+    if normalized_field.lower() in ("ticket-id", "created"):
+        print(f"Error: Field '{field}' cannot be updated", file=sys.stderr)
+        sys.exit(1)
+
+    headers, body = read_headers(ticket_file)
+    headers[normalized_field] = value.strip()
+    write_headers(ticket_file, headers, body)
+    print(f"Updated ticket field '{normalized_field}' in {SLOTS[10]}")
 
 
 def init_workspace(
@@ -199,15 +258,8 @@ def init_workspace(
 
     ticket_path = os.path.join(state_dir, SLOTS[10])
     if os.path.exists(ticket_path) and not force:
-        active_id = "UNKNOWN"
-        try:
-            with open(ticket_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("Ticket-ID:"):
-                        active_id = line.split(":", 1)[1].strip()
-                        break
-        except Exception:
-            pass
+        active_headers, _ = read_headers(ticket_path)
+        active_id = active_headers.get("Ticket-ID", "UNKNOWN")
         print(f"Error: active ticket {active_id} exists; run 'clean' first or pass --force", file=sys.stderr)
         sys.exit(1)
 
@@ -226,7 +278,7 @@ def init_workspace(
 - State Recovery: On session start or compaction, inspect .state/ and resume from highest runlevel.
 - Invariant: Build and tests must pass at every milestone gate.
 - Circuit Breaker: Trips at k=2 consecutive failures -> halt and escalate.
-- Anti-Bloat: Active latches capped at 6 bounded slots.
+- Anti-Bloat: Active latches strictly bounded.
 """
         _locked_write(gov_path, governance or default_gov, mode="w")
 
@@ -235,19 +287,23 @@ def init_workspace(
 
     # 4. Write 10_ticket.md
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    ticket_body = f"""Ticket-ID: {ticket_id}
-Title: {title}
-Status: IN_PROGRESS
-Created: {now_iso}
-Timestamp: {now_iso}
-"""
+    ticket_headers = {
+        "Ticket-ID": ticket_id,
+        "Title": title,
+        "Status": "IN_PROGRESS",
+        "Created": now_iso,
+        "Timestamp": now_iso,
+    }
+    ticket_body = f"## Requirements\n{title}\n"
+    write_headers(ticket_path, ticket_headers, ticket_body)
+
+    # 4b. Write tracked repo-level .unix-primitives if verify_cmd given
     if verify_cmd:
-        ticket_body += f"Verify-Command: {verify_cmd}\n"
-    ticket_body += f"""
-## Requirements
-{title}
-"""
-    _locked_write(ticket_path, ticket_body, mode="w")
+        repo_cfg = os.path.join(os.path.abspath(workspace), ".unix-primitives")
+        cfg_headers, cfg_body = read_headers(repo_cfg)
+        cfg_headers["Verify-Command"] = verify_cmd
+        write_headers(repo_cfg, cfg_headers, cfg_body)
+        print("Commit .unix-primitives to lock the gate.")
 
     # 5. Write volatile 99_next_action.md
     write_next_action(workspace, "plan", "10_ticket.md", "DRAFT_PLAN", ticket_id)
@@ -259,7 +315,7 @@ Timestamp: {now_iso}
 
     print(f"Initialized physical disk state at: {state_dir}")
     print(f"Active ticket: [{ticket_id}] {title}")
-    print(f"Disk slots strictly bounded (Max 6 files, O(1) storage).")
+    print("Disk slots strictly bounded.")
 
 
 def link_project_agents(workspace: str) -> None:
@@ -285,7 +341,7 @@ def link_project_agents(workspace: str) -> None:
 
     if linked:
         print(f"Auto-linked {len(linked)} unix primitives to workspace .agents/skills/: {', '.join(linked)}")
-    print("Warning: symlinks in .agents/skills/ contain absolute paths to home directory; do not commit them to version control.")
+        print("Warning: symlinks in .agents/skills/ contain absolute paths to home directory; do not commit them to version control.")
 
 
 def write_next_action(workspace: str, next_action: str, target_file: str, status: str, ticket_id: str) -> None:
@@ -335,34 +391,83 @@ def stamp_milestone(workspace: str, slot_id: str, content: str, next_action: str
     # Read ticket ID if available
     ticket_id = "UNKNOWN"
     if os.path.exists(ticket_file):
-        with open(ticket_file, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("Ticket-ID:"):
-                    ticket_id = line.split(":", 1)[1].strip()
-                    break
+        headers, _ = read_headers(ticket_file)
+        ticket_id = headers.get("Ticket-ID", "UNKNOWN")
+
+    # Invalidate higher milestone slots > slot_num
+    invalidated = []
+    for higher_slot in (20, 30, 40):
+        if higher_slot > slot_num:
+            higher_file = os.path.join(state_dir, SLOTS[higher_slot])
+            if os.path.exists(higher_file):
+                archive_dir = os.path.join(state_dir, "archive")
+                os.makedirs(archive_dir, exist_ok=True)
+                safe_ticket_id = sanitize_id(ticket_id)
+                archive_file = os.path.join(archive_dir, f"{safe_ticket_id}.log")
+                with open(higher_file, "r", encoding="utf-8") as hf:
+                    hcontent = hf.read()
+                arch_entry = f"=== INVALIDATED {SLOTS[higher_slot]} {now_iso} ===\n{hcontent}\n\n"
+                _locked_write(archive_file, arch_entry, mode="a")
+                try:
+                    os.remove(higher_file)
+                    invalidated.append(SLOTS[higher_slot])
+                except OSError:
+                    pass
+    if invalidated:
+        print(f"Invalidated: {', '.join(invalidated)}")
 
     write_next_action(workspace, next_action, filename, "PROGRESSING", ticket_id)
     print(f"Physical latch stamped: {filename} (Disk mtime updated)")
 
 
-def verify_gate(workspace: str) -> bool:
+def verify_gate(workspace: str, allow_dirty_config: bool = False) -> bool:
     state_dir = get_state_dir(workspace)
     impl_file = os.path.join(state_dir, SLOTS[40])
     if not os.path.exists(impl_file):
         print(f"Error: Implementation milestone not verified ({SLOTS[40]} missing)", file=sys.stderr)
         sys.exit(1)
 
-    verify_cmd = ""
+    # Check strict mtime order: mtime(10) <= mtime(20) <= mtime(30) <= mtime(40)
+    for earlier_slot, later_slot in [(10, 20), (20, 30), (30, 40)]:
+        p_earlier = os.path.join(state_dir, SLOTS[earlier_slot])
+        p_later = os.path.join(state_dir, SLOTS[later_slot])
+        if os.path.exists(p_earlier) and os.path.exists(p_later):
+            if os.path.getmtime(p_later) < os.path.getmtime(p_earlier):
+                print(f"Error: {SLOTS[later_slot]} older than {SLOTS[earlier_slot]}; re-stamp required", file=sys.stderr)
+                sys.exit(1)
+
+    # Check for deprecated ticket header
     ticket_file = os.path.join(state_dir, SLOTS[10])
     if os.path.exists(ticket_file):
-        with open(ticket_file, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("Verify-Command:"):
-                    verify_cmd = line.split(":", 1)[1].strip()
-                    break
+        ticket_h, _ = read_headers(ticket_file)
+        if "Verify-Command" in ticket_h:
+            print("Warning: Verify-Command in 10_ticket.md is deprecated and ignored; use repo root .unix-primitives", file=sys.stderr)
+
+    repo_cfg_path = os.path.join(os.path.abspath(workspace), ".unix-primitives")
+    verify_cmd = ""
+    if os.path.exists(repo_cfg_path):
+        if not allow_dirty_config:
+            try:
+                res = subprocess.run(
+                    ["git", "status", "--porcelain", ".unix-primitives"],
+                    cwd=os.path.abspath(workspace),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                status_lines = res.stdout.splitlines()
+                for s_line in status_lines:
+                    if s_line.startswith((" M", "M ", "MM")):
+                        print("Warning: verify command modified but uncommitted", file=sys.stderr)
+                        sys.exit(1)
+            except Exception:
+                pass
+
+        cfg_headers, _ = read_headers(repo_cfg_path)
+        verify_cmd = cfg_headers.get("Verify-Command", "")
 
     if verify_cmd:
-        print(f"Executing verify command from repo root: {verify_cmd}")
+        print(f"Executing verify command from .unix-primitives: {verify_cmd}")
         res = subprocess.run(verify_cmd, shell=True, cwd=os.path.abspath(workspace))
         if res.returncode != 0:
             print(f"Error: Verify command failed with exit code {res.returncode}", file=sys.stderr)
@@ -446,11 +551,8 @@ def clean_active_latches(workspace: str, archive: bool = True) -> None:
     ticket_file = os.path.join(state_dir, SLOTS[10])
     ticket_id = "previous"
     if os.path.exists(ticket_file):
-        with open(ticket_file, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("Ticket-ID:"):
-                    ticket_id = line.split(":", 1)[1].strip()
-                    break
+        headers, _ = read_headers(ticket_file)
+        ticket_id = headers.get("Ticket-ID", "previous")
 
     # Archive to single flat file if requested to prevent bloat
     if archive and os.path.exists(ticket_file):
@@ -511,7 +613,7 @@ def clean_active_latches(workspace: str, archive: bool = True) -> None:
             except OSError:
                 pass
 
-    print("Active latches cleaned. Zero disk bloat preserved.")
+    print("Active latches cleaned.")
 
 
 def get_hooks_dir(workspace: str) -> str:
@@ -561,11 +663,23 @@ def manage_hook(workspace: str, hook_type: str = "pre-push", remove: bool = Fals
             content = f.read()
         if "# unix-primitives-managed-hook" not in content:
             if os.path.exists(backup_file):
-                os.remove(backup_file)
+                epoch = int(time.time())
+                os.rename(backup_file, f"{backup_file}.{epoch}")
             os.rename(hook_file, backup_file)
             print(f"Existing {hook_type} hook preserved as: {backup_file}")
 
-    _locked_write(hook_file, HOOK_TEMPLATE.format(hook_type=hook_type), mode="w")
+    if hook_type == "pre-commit":
+        failure_msg = 'echo "Fix milestone or run /unix-clean before committing."'
+    else:
+        failure_msg = 'echo "Local commits remain safe. Fix milestone or run /unix-clean before proceeding."'
+
+    script_path = os.path.abspath(__file__)
+    hook_body = HOOK_TEMPLATE.format(
+        hook_type=hook_type,
+        failure_msg=failure_msg,
+        state_manager_path=script_path
+    )
+    _locked_write(hook_file, hook_body, mode="w")
 
     st = os.stat(hook_file)
     os.chmod(hook_file, st.st_mode | stat.S_IEXEC)
@@ -589,6 +703,12 @@ def main():
     p_init.add_argument("--track-governance", action="store_true", help="Allow git tracking of 00_governance.md")
     p_init.add_argument("--force", action="store_true", help="Force initialization even if active ticket exists")
 
+    # update-ticket
+    p_update = subparsers.add_parser("update-ticket", help="Update single RFC 822 header in 10_ticket.md")
+    p_update.add_argument("--field", required=True, help="Header field to update")
+    p_update.add_argument("--value", required=True, help="New header value")
+    p_update.add_argument("--workspace", default=".", help="Workspace path")
+
     # stamp (supports named slots: plan, tdd, impl)
     p_stamp = subparsers.add_parser("stamp", help="Write physical milestone latch")
     p_stamp.add_argument("slot", type=str, help="Runlevel slot (e.g. plan, tdd, impl, or 20, 30, 40)")
@@ -599,6 +719,7 @@ def main():
 
     # verify
     p_verify = subparsers.add_parser("verify", help="Verify milestone gates and run verification command")
+    p_verify.add_argument("--allow-dirty-config", action="store_true", help="Allow uncommitted changes to .unix-primitives")
     p_verify.add_argument("--workspace", default=".", help="Workspace path")
 
     # artifact (subagent arena output isolation)
@@ -622,7 +743,7 @@ def main():
     p_hook.add_argument("--workspace", default=".", help="Workspace path")
 
     # link-agents (link global skills into local .agents/skills/)
-    p_link = subparsers.add_parser("link-agents", help="Symlink global unix skills into local .agents/skills/ for zero-token discovery")
+    p_link = subparsers.add_parser("link-agents", help="Symlink global unix skills into local .agents/skills/")
     p_link.add_argument("--workspace", default=".", help="Workspace path")
 
     args = parser.parse_args()
@@ -636,12 +757,14 @@ def main():
             track_governance=args.track_governance,
             force=args.force
         )
+    elif args.command == "update-ticket":
+        update_ticket(args.workspace, args.field, args.value)
     elif args.command == "link-agents":
         link_project_agents(args.workspace)
     elif args.command == "stamp":
         stamp_milestone(args.workspace, args.slot, args.content, args.next_action, force=args.force)
     elif args.command == "verify":
-        verify_gate(args.workspace)
+        verify_gate(args.workspace, allow_dirty_config=args.allow_dirty_config)
     elif args.command == "artifact":
         content = args.content
         if content is None or content == "-":
