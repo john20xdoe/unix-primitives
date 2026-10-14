@@ -13,11 +13,37 @@ import shutil
 import argparse
 from typing import List, Dict, Optional
 
+LOW = 1
+MODERATE = 25
+CRITICAL = 60
+
+REMEDY_TERMS = [
+    "git bisect",
+    "binary search commits",
+    "least privilege",
+    "stream demux",
+    "signal trap",
+    "fail-fast shell",
+    "context bloat",
+    "apology death spiral",
+    "compaction amnesia",
+    "sunny-day testing",
+    "superficial review",
+    "polite code review",
+    "topological commits",
+    "commit decomposition",
+    "unbounded context",
+    "subagent delegation",
+    "silent error swallowing",
+    "trial edits",
+    "pause gate",
+]
+
 PATTERNS = [
     {
         "id": "MAKEFILE_DAG",
         "name": "Imperative Execution Checklist / GOTO Loop",
-        "regex": r"(?i)(?:step\s*\d+[:\.]?[\s\S]{1,60}(?:then|next|after|goto|return\s*to)|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:first\b[\s\S]{1,60}\bthen\b[\s\S]{1,60}\b(?:finally|after))|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)|(?:before\s+(?:proceeding|moving\s+to|continuing)|prerequisite|depends\s+on\s+step)|(?:\b1\.\s+[\s\S]*?\b2\.\s+[\s\S]*?(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
+        "regex": r"(?i)(?:step\s*\d+[:\.]?[^\n]{1,60}(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|before\s+(?:proceeding|moving\s+to|continuing)\s+to\s+step\s*\d+|depends\s+on\s+step\s*\d+|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)\s*\n(?=(?:[^\n]*\n){0,10}[-*0-9]+\.)|(?:\b1\.\s+(?:[^\n]*\n){0,20}?\s*\b2\.\s+[^\n]*(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
         "canonical": "GNU Makefile DAG (target: prerequisites, .PHONY)",
         "explanation": "Replace linear checklist with backward-chaining Makefile targets and file mtime invalidation.",
         "snippet": """.PHONY: finish ci-gate
@@ -32,7 +58,7 @@ ci-gate: test-green lint-green""",
     {
         "id": "SYSV_INITD",
         "name": "Mutable Progress State / Compaction Amnesia",
-        "regex": r"(?i)(?:-\s*\[[ xX]?\]|(?:track|maintain|update|log|record)\s+(?:your\s+)?(?:progress|status|state|tasks?|todos?|checklist|steps?|scratchpad)|#+\s*(?:tasks?|todo|progress|checklist|current\s+state)|(?:mark\s+(?:tasks?|steps?|items?)\s+as\s+(?:done|complete)|check\s+off)|(?:keep\s+track\s+of|remember\s+(?:what|which)\s+steps|scratchpad|memory\s+bank))",
+        "regex": r"(?i)(?:-\s*\[[ xX]?\][\s\S]{0,100}?(?:(?:update|maintain|track)\s+(?:your\s+)?(?:progress|status|state|checklist)|mark\s+(?:tasks?|steps?)\s+as\s+(?:done|complete)|check\s*off\s+(?:tasks?|steps?)|keep\s+track\s+of)|(?:(?:update|maintain|track)\s+(?:your\s+)?(?:progress|status|state|checklist)|mark\s+(?:tasks?|steps?)\s+as\s+(?:done|complete)|check\s*off\s+(?:tasks?|steps?)|keep\s+track\s+of)[\s\S]{0,100}?-\s*\[[ xX]?\]|(?:track|maintain|update|log|record)\s+(?:your\s+)?(?:progress|status|state|tasks?|scratchpad)|(?:mark\s+(?:tasks?|steps?|items?)\s+as\s+(?:done|complete)|check\s+off\s+(?:tasks?|steps?))|(?:keep\s+track\s+of\s+progress|remember\s+(?:what|which)\s+steps|memory\s+bank))",
         "canonical": "SysV /etc/init.d Runlevels (00_... -> 99_...) + RFC 822 Headers",
         "explanation": "Externalize state to disk-backed immutable lexical latches with RFC 822 key-value headers.",
         "snippet": """state/
@@ -41,7 +67,7 @@ ci-gate: test-green lint-green""",
   20_plan_approved.md  (human signoff latch)
   99_next_action.md    (volatile pointer)""",
         "weight": 10,
-        "keywords": ["progress tracking", "compaction amnesia", "mark tasks as done", "task checklist"],
+        "keywords": ["progress tracking", "mark tasks as done", "task checklist"],
         "reason_hit": "Mutable task tracking / compaction-vulnerable scratchpad",
         "reason_kw": "Interactive progress tracking -> SysV /etc/init.d runlevel latches",
     },
@@ -54,7 +80,7 @@ ci-gate: test-green lint-green""",
         "snippet": """PID 1 (Orchestrator): fork(role="Archaeology") -> waitpid()
 Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0""",
         "weight": 10,
-        "keywords": ["child agent", "worker agent", "unbounded context", "subagent delegation"],
+        "keywords": ["child agent", "worker agent"],
         "reason_hit": "Subagent delegation / memory management",
         "reason_kw": "Worker agent delegation -> Unix process fork()/waitpid() arena GC",
     },
@@ -71,7 +97,7 @@ Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0""",
 conversation ::= !request ?assert_reality ( ?promise | ?counter_offer | ?decline )
 (* Invariant: ?promise forbidden until ?assert verifies physical API existence *)""",
         "weight": 10,
-        "keywords": ["json only", "format strictly", "pause gate", "wait for user confirmation", "stop and ask before"],
+        "keywords": ["json only", "format strictly", "wait for user confirmation", "stop and ask before"],
         "reason_hit": "Output format constraints / pause-tool gating conflict",
         "reason_kw": "Unconstrained response grammar -> RFC 5234 EBNF mutual exclusion",
     },
@@ -86,7 +112,7 @@ conversation ::= !request ?assert_reality ( ?promise | ?counter_offer | ?decline
 @invariant balance >= 0
 QuickCheck Laws: idempotence, round-trip, boundary probe""",
         "weight": 10,
-        "keywords": ["test all edge cases", "sunny-day testing", "test-driven prompt", "verify all tests pass"],
+        "keywords": ["test all edge cases", "test-driven prompt", "verify all tests pass"],
         "reason_hit": "Informal testing / edge-case pleading",
         "reason_kw": "Informal test criteria -> Design-by-Contract (@requires/@ensures)",
     },
@@ -112,27 +138,27 @@ PHASE 2 (DECIDE): If all PREPARED -> COMMIT, else ROLLBACK""",
         "snippet": """threshold: k=2
 If failures >= 2: STATE = OPEN -> HARD HALT. Suppress retry. Escalate to human.""",
         "weight": 10,
-        "keywords": ["retry until", "apology death spiral", "if failed try again", "repeat on failure", "when stuck"],
+        "keywords": ["retry until", "if failed try again", "repeat on failure", "when stuck"],
         "reason_hit": "Unbounded retry loop / apology death spiral",
         "reason_kw": "Retry loops -> Distributed Circuit Breaker FSM (k=2)",
     },
     {
         "id": "GIT_BISECT",
         "name": "Linear Flailing / Guess-Based Debugging",
-        "regex": r"(?i)(?:figure\s+out\s+why\s+(?:this|the|it)|find\s+(?:which\s+commit|what)\s+broke|locate\s+(?:the\s+)?regression|trace\s+(?:the\s+)?root\s+cause|binary\s+search\s+commits)",
+        "regex": r"(?i)(?:figure\s+out\s+why\s+(?:this|the|it)\b|find\s+(?:which\s+commit|what)\s+broke|locate\s+(?:the\s+)?regression|trace\s+(?:the\s+)?root\s+cause)",
         "canonical": "git bisect (Logarithmic Binary Search O(log2 N))",
         "explanation": "Partition causal search space into binary halves using midpoint probes rather than linear scans.",
         "snippet": """mid = (low + high) // 2
 Probe mid -> adjust bounds -> converge in ceil(log2 N) steps.""",
         "weight": 10,
-        "keywords": ["binary search commits", "git bisect", "find regression commit", "figure out what broke"],
+        "keywords": ["find regression commit", "figure out what broke"],
         "reason_hit": "Linear guesswork debugging / regression tracing",
         "reason_kw": "Ad-hoc debugging -> Logarithmic binary partitioning O(log2 N)",
     },
     {
         "id": "LKML_PATCH_SERIES",
         "name": "Vague Commit Decomposition",
-        "regex": r"(?i)(?:(?:clean|logical|atomic|small)\s+commits?|break\s+(?:down\s+)?changes\s+into\s+commits|commit\s+messages?\s+(?:guidelines?|format|convention))",
+        "regex": r"(?i)(?:\b(?:clean|logical|atomic|small)\s+commits?|break\s+(?:down\s+)?changes\s+into\s+commits|commit\s+messages?\s+(?:guidelines?|format|convention))",
         "canonical": "LKML [PATCH 0/N] Series + git rebase --exec",
         "explanation": "Require topological commit series where every intermediate commit independently compiles and tests pass.",
         "snippet": """[PATCH 0/N]: Architecture DAG
@@ -140,14 +166,14 @@ Probe mid -> adjust bounds -> converge in ceil(log2 N) steps.""",
 [PATCH N/N]: Wireup & integration tests
 Invariant: git rebase --exec "make test" passes on every commit.""",
         "weight": 10,
-        "keywords": ["clean commit guidelines", "break down changes into commits", "commit decomposition", "topological commits"],
+        "keywords": ["clean commit guidelines", "break down changes into commits"],
         "reason_hit": "Vague commit decomposition / Conventional Commits guidelines",
         "reason_kw": "Commit structuring -> LKML [PATCH 0/N] series",
     },
     {
         "id": "COMPILER_DIAGNOSTICS",
         "name": "Polite / Superficial Code Review",
-        "regex": r"(?i)(?:code\s*review|review\s+(?:the\s+)?(?:code|changes?|diff|pr|pull\s*request)|check\s+(?:code\s+)?for\s+(?:bugs?|errors?|issues?|code\s+smells?|regressions?)|verify\s+(?:code\s+quality|clean\s+code|correctness))",
+        "regex": r"(?im)(?:^\s*(?:[-*]\s*)?(?:review|check)\s+(?:the\s+)?(?:code|diff|pr)\b|check\s+(?:the\s+)?code\s+for\s+(?:bugs?|errors?|issues?|code\s+smells?|regressions?)|^\s*(?:[-*]\s*)?verify\s+(?:code\s+quality|clean\s+code|correctness)\b)",
         "canonical": "Multi-Pass Compiler Diagnostics Pipeline (error[SCAR-XX])",
         "explanation": "Replace peer compliments with structured static analysis passes (AST -> Lifetimes -> Blast Radius).",
         "snippet": """error[SCAR-XX]: <defect summary>
@@ -156,7 +182,7 @@ Invariant: git rebase --exec "make test" passes on every commit.""",
    = invariant: <breached rule>
    = fix: <concrete diff>""",
         "weight": 10,
-        "keywords": ["polite code review", "check code for bugs", "superficial review", "code quality checklist"],
+        "keywords": ["check code for bugs", "code quality checklist"],
         "reason_hit": "Polite / superficial code review checklist",
         "reason_kw": "Code review -> Multi-pass compiler diagnostics (error[SCAR-XX])",
     },
@@ -170,7 +196,7 @@ Invariant: git rebase --exec "make test" passes on every commit.""",
 stderr (FD 2): Diagnostic progress & human notes.
 exit code: 0 on success, >0 on failure.""",
         "weight": 10,
-        "keywords": ["mix data with text", "payload and comments", "no conversational text", "stream demux"],
+        "keywords": ["mix data with text", "payload and comments", "no conversational text"],
         "reason_hit": "Mixed payload and conversational prose in single channel",
         "reason_kw": "Channel mixing -> POSIX stream demux (FD 1 vs FD 2)",
     },
@@ -183,7 +209,7 @@ exit code: 0 on success, >0 on failure.""",
         "snippet": """SIGINT  -> trap checkpoint_and_pause: flush state to `99_next_action.md`
 SIGTERM -> trap rollback_and_exit: rollback uncommitted WAL, exit 0""",
         "weight": 10,
-        "keywords": ["handle interruption", "graceful teardown", "signal trap", "handle cancellation gracefully"],
+        "keywords": ["handle interruption", "graceful teardown", "handle cancellation gracefully"],
         "reason_hit": "Unstructured cancellation / teardown handling",
         "reason_kw": "Interruption handling -> POSIX signal traps (SIGINT/SIGTERM)",
     },
@@ -212,7 +238,7 @@ release_lock("<file>.lock")""",
 # -u: error on unset variable
 # -o pipefail: fail if any pipe segment fails""",
         "weight": 10,
-        "keywords": ["fail-fast shell", "silent error swallowing", "abort on error", "stop on command failure"],
+        "keywords": ["abort on error", "stop on command failure"],
         "reason_hit": "Permissive silent script error swallowing",
         "reason_kw": "Script execution -> set -euo pipefail invariant",
     },
@@ -226,14 +252,14 @@ release_lock("<file>.lock")""",
 # test passes -> fast-forward merge
 # test fails -> git worktree remove --force ../scratch-tx""",
         "weight": 10,
-        "keywords": ["speculative edit", "undo if failed", "temporary branch revert", "trial edits"],
+        "keywords": ["speculative edit", "undo if failed", "temporary branch revert"],
         "reason_hit": "Unhedged in-place speculative trial edits",
         "reason_kw": "Trial modifications -> Copy-On-Write scratch worktrees",
     },
     {
         "id": "LEAST_PRIVILEGE",
         "name": "Vague Role-Based Behavioral Pleading",
-        "regex": r"(?i)(?:(?:do\s+not|never)\s+(?:modify|edit|change|touch|write\s+to|delete)\s+(?:any\s+)?(?:files?|code)|read[- ]only\s+mode|only\s+(?:read|look|inspect|explore)|prohibited\s+from\s+(?:editing|modifying|writing))",
+        "regex": r"(?i)(?:(?:do\s+not|never)\s+(?:modify|edit|change|touch|write\s+to|delete)\s+(?:any\s+)?(?:files?|code)|read[- ]only\s+mode|(?:you\s+(?:may|must|should|can)\s+)?only\s+(?:read|inspect)\s+(?:files?|the\s+repo|code)|prohibited\s+from\s+(?:editing|modifying|writing))",
         "canonical": "Principle of Least Privilege / Capabilities (chmod r--)",
         "explanation": "Enforce tool restrictions structurally at permission mask level rather than conversational pleading.",
         "snippet": """Capabilities:
@@ -241,24 +267,39 @@ release_lock("<file>.lock")""",
   CAP_WRITE_FS: DENY (strip write_to_file / replace_file_content)
   CAP_EXEC_SHELL: DENY""",
         "weight": 10,
-        "keywords": ["read-only mode", "do not modify any files", "forbidden to edit", "least privilege"],
+        "keywords": ["read-only mode", "do not modify any files", "forbidden to edit"],
         "reason_hit": "Conversational pleading for read-only / tool restrictions",
         "reason_kw": "Tool restrictions -> Principle of Least Privilege (chmod r--)",
     },
     {
         "id": "RING_BUFFER",
         "name": "Unbounded Log Output / Context Flooding",
-        "regex": r"(?i)(?:(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|context\s+(?:bloat|flooding))",
+        "regex": r"(?i)(?:\b(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|context\s+(?:bloat|flooding))",
         "canonical": "Circular Ring Buffer / Tail Truncation (logrotate)",
         "explanation": "Cap tool output with constant-bound FIFO ring buffer: retain head (5 lines) + tail (45 lines).",
         "snippet": """Buffer Capacity: N = 50 lines (Ring Buffer)
 Overflow: drop intermediate lines -> emit: "[... skipped M lines ...]\\n" + tail""",
         "weight": 10,
-        "keywords": ["truncate long logs", "terminal context flooding", "context bloat", "tail output"],
+        "keywords": ["truncate long logs", "terminal context flooding", "tail output"],
         "reason_hit": "Unbounded log output / terminal context flooding",
         "reason_kw": "Terminal logs -> Circular Ring Buffer (O(1) bound)",
     }
 ]
+
+CODE_LANGS = {
+    "makefile", "make", "bash", "sh", "zsh", "text", "ebnf", "abnf",
+    "python", "json", "yaml", "toml", "ini", "diff", "console", "dart",
+    "ts", "js"
+}
+
+def _is_sentence_like(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if stripped[-1] not in ".!?":
+        return False
+    words = stripped.split()
+    return len(words) >= 6
 
 def strip_frontmatter(text: str) -> str:
     """Strip YAML frontmatter (--- ... ---) from start of file so metadata doesn't trigger false positives."""
@@ -268,21 +309,43 @@ def strip_frontmatter(text: str) -> str:
     return text
 
 def strip_code(text: str) -> str:
-    """Strip fenced code blocks and inline code so code snippets don't trigger false positives."""
-    text = re.sub(r"```+[\s\S]*?```+", "", text)
-    text = re.sub(r"`+[^`\n]+`+", "", text)
+    def replace_fence(m):
+        info = (m.group(1) or "").strip().lower()
+        content = m.group(2) or ""
+        if info in CODE_LANGS:
+            return "\n" * content.count("\n")
+        if not info:
+            has_sentence = any(_is_sentence_like(l) for l in content.splitlines())
+            if not has_sentence:
+                return "\n" * content.count("\n")
+            return content
+        return "\n" * content.count("\n")
+
+    text = re.sub(r"```+([^\n]*)\n([\s\S]*?)```+", replace_fence, text)
     return text
 
 def scan_text(text: str, strip_fm: bool = True) -> List[Dict]:
     body = strip_frontmatter(text) if strip_fm else text
     body = strip_code(body)
+
+    # Inline code backtick spans shorter than 38 chars are ignored
+    short_backtick_spans = []
+    for m in re.finditer(r"`([^`\n]+)`", body):
+        if len(m.group(0)) < 38:
+            short_backtick_spans.append((m.start(), m.end()))
+
     findings = []
     for p in PATTERNS:
-        matches = list(re.finditer(p["regex"], body))
+        matches = []
+        for m in re.finditer(p["regex"], body):
+            start = m.start()
+            if any(s_start <= start < s_end for s_start, s_end in short_backtick_spans):
+                continue
+            matches.append(m.group(0))
         if matches:
             findings.append({
                 "pattern": p,
-                "matches": [m.group(0) for m in matches]
+                "matches": matches
             })
     return findings
 
@@ -355,15 +418,18 @@ def calculate_friction_score(findings: List[Dict], total_lines: int) -> int:
     """Calculate friction score normalized by finding weights and document density.
 
     Formula:
-      weighted = sum(weight[id] * min(len(matches), 3) for finding in findings)
+      weighted = sum(weight[id] * (1.0 + 0.5 * (min(len(matches), 3) - 1)) for finding in findings)
       density = weighted / max(1.0, total_lines / 50.0)
-      score = min(100, round(density * 4))
+      score = min(100, round(density * 2.0))
     """
     if not findings or total_lines <= 0:
         return 0
-    weighted = sum(f["pattern"].get("weight", 10) * min(len(f["matches"]), 3) for f in findings)
+    weighted = sum(
+        f["pattern"].get("weight", 10) * (1.0 + 0.5 * (min(len(f["matches"]), 3) - 1))
+        for f in findings
+    )
     density = weighted / max(1.0, total_lines / 50.0)
-    return min(100, round(density * 4))
+    return min(100, round(density * 2.0))
 
 
 def classify_file_suitability(content: str, rel_path: str, findings: List[Dict]) -> Dict:
@@ -412,7 +478,7 @@ def classify_file_suitability(content: str, rel_path: str, findings: List[Dict])
 
 def format_scan_report(filepath: str, findings: List[Dict], total_lines: int, content: str = "") -> str:
     score = calculate_friction_score(findings, total_lines)
-    status = "CRITICAL: Highly Fragile" if score > 60 else "MODERATE: Can be hardened" if score > 20 else "LOW: Minor friction detected" if score > 0 else "CLEAN: Aligns with canonical CS primitives"
+    status = "CRITICAL: Highly Fragile" if score >= CRITICAL else "MODERATE: Can be hardened" if score >= MODERATE else "LOW: Minor friction detected" if score >= LOW else "CLEAN: Aligns with canonical CS primitives"
     rel_path = os.path.basename(filepath)
     suit = classify_file_suitability(content, rel_path, findings)
 
@@ -546,7 +612,7 @@ def scan_directory(dir_path: str) -> None:
 
     avg_score = sum(r["score"] for r in file_results) // len(file_results) if file_results else 0
     max_score = max((r["score"] for r in file_results), default=0)
-    status = "CRITICAL: Highly Fragile" if max_score > 60 else "MODERATE: Can be hardened" if max_score > 20 else "LOW: Minor friction detected" if max_score > 0 else "CLEAN: Aligns with canonical CS primitives"
+    status = "CRITICAL: Highly Fragile" if max_score >= CRITICAL else "MODERATE: Can be hardened" if max_score >= MODERATE else "LOW: Minor friction detected" if max_score >= LOW else "CLEAN: Aligns with canonical CS primitives"
 
     print("=== Local .agents/ Workspace Friction Audit ===")
     print(f"Target Directory: {dir_path}")
@@ -629,7 +695,7 @@ def get_next_increment_path(target_path: str) -> str:
     return os.path.join(dir_name, f"{stem}.{next_num:02d}.converted")
 
 def get_backup_path(target_path: str) -> str:
-    """Return backup path with '_original' suffix so Gemini/Antigravity ignores it during prompt discovery."""
+    """Return backup path with '_original' suffix so agent discovery engines ignore it."""
     return f"{target_path}_original"
 
 def auto_detect_target() -> Optional[str]:
@@ -745,6 +811,9 @@ def format_score_delta(original_path: str, rewritten_path: str) -> str:
     if orig_score > 0:
         pct_reduction = ((orig_score - rewr_score) / orig_score) * 100.0
 
+    orig_long_spans = len(re.findall(r"`[^`\n]{38,}`", orig_content))
+    rewr_long_spans = len(re.findall(r"`[^`\n]{38,}`", rewr_content))
+
     lines = [
         "=== Pre-Training Friction Score Delta ===",
         f"Original:  {original_path} ({orig_lines} lines)",
@@ -754,6 +823,10 @@ def format_score_delta(original_path: str, rewritten_path: str) -> str:
         "",
         f"Delta:     {delta:+d} ({pct_reduction:.1f}% friction reduction)" if orig_score > 0 else f"Delta:     {delta:+d}",
     ]
+
+    if rewr_long_spans > orig_long_spans:
+        diff = rewr_long_spans - orig_long_spans
+        lines.append(f"Backtick-wrapped prose added: {diff} lines")
 
     if resolved_ids:
         resolved_str = ", ".join(f"{pid} ({orig_primitives[pid]})" for pid in resolved_ids)
@@ -798,13 +871,21 @@ def main():
     p_audit.add_argument("target", nargs="?", help="Path to file or local .agents/ directory")
     p_audit.add_argument("--save-to", help="Optional file path to save the generated prompt")
 
-    # convert (default non-destructive, writes to <target>.NN.md)
-    p_convert = subparsers.add_parser("convert", help="Convert non-destructively to <target>.NN.md")
+    # convert (default non-destructive, writes to <target>.NN.converted)
+    p_convert = subparsers.add_parser(
+        "convert",
+        help="Convert non-destructively to <target>.NN.converted",
+        description="Convert non-destructively to <target>.NN.converted"
+    )
     p_convert.add_argument("target", help="Path to target file")
     p_convert.add_argument("--output", help="Custom output path")
 
-    # rewrite (in-place rewrite with <target>.md_original backup)
-    p_rewrite = subparsers.add_parser("rewrite", help="Rewrite file in-place with <target>.md_original backup")
+    # rewrite (in-place rewrite with <target>_original backup)
+    p_rewrite = subparsers.add_parser(
+        "rewrite",
+        help="Rewrite file in-place with <target>_original backup",
+        description="Rewrite file in-place with <target>_original backup"
+    )
     p_rewrite.add_argument("target", help="Path to target file")
 
     args = parser.parse_args()
