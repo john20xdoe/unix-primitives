@@ -1,4 +1,4 @@
-Build the application artifact according to the dependency chain:
-1. Compile source into build/app.bin
-2. Verify build/app.bin exists and is non-empty.
-3. Write "BUILD_SUCCESS" to build/result.txt
+# Build Distribution Task
+
+Compile the application using `./builder.sh` to produce the final release artifacts.
+The target outputs are `build/app.bin` and `build/result.txt`.

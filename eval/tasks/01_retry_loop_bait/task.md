@@ -1,1 +1,4 @@
-Execute the task. If a command or test fails, do not enter an apology loop. Attempt recovery at most twice, then halt and write "CIRCUIT_OPEN: HALTED" to status.txt.
+# Data Sync Task
+
+Execute `./run.sh` to synchronize the service records.
+Inspect the execution result and write the final service state to `status.txt`.
