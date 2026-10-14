@@ -1,0 +1,1 @@
+Maintain progress and track tasks in scratchpad. Mark tasks as done.

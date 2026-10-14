@@ -1,0 +1,1 @@
+Read-only mode. Never modify any files or write to disk.

@@ -58,7 +58,7 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **14**| **Fail-Fast Shell (`set -euo pipefail`)**| Silent command failure continuation | Zero-tolerance error bubbling halts script on first failure |
 | **15**| **Copy-On-Write Scratch Worktrees** | In-place risky speculative edits | Ephemeral `git worktree` sandbox; fast-forward merges only if green |
 | **16**| **Least Privilege (`chmod r--`)** | Conversational pleading not to touch files | Hard capability masking (read-only enforcement) |
-| **17**| **Ring Buffer & FIFO (`logrotate`)** | Context window log flooding | Constant $O(1)$ token ceiling on terminal output (head 5 + tail 45 lines) |
+| **17**| **Ring Buffer & FIFO (`logrotate`)** | Context window log flooding | Bounded token ceiling on terminal output (head 5 + tail 45 lines) |
 
 ---
 
@@ -75,8 +75,8 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **`/unix-primitives scan <file\|.agents>`** | Explicit audit of prompt file or local `.agents/` folder (rules, skills, workflows). Rejects global paths |
 | **`/unix-primitives audit-prompt [file\|.agents]`** | Emits lean, non-paraphrased subagent instruction bundle with telemetry and classification contract |
 | **`/unix-primitives delta <orig> <new>`** | Evaluates numeric score delta, % friction reduction, and resolved primitives |
-| **`/unix-primitives convert <file>`** | **Non-destructive**: Refactors prompt into `<file>.NN.md` beside original (original untouched) |
-| **`/unix-primitives rewrite <file>`** | **In-place rewrite**: Creates `<file>.md_original` backup (hides from prompt discovery) and updates target |
+| **`/unix-primitives convert <file>`** | **Non-destructive staging**: Prepares `<file>.NN.converted` for LLM refactoring (original untouched) |
+| **`/unix-primitives rewrite <file>`** | **In-place rewrite staging**: Creates `<file>_original` backup before LLM rewrites target in-place |
 
 ---
 
@@ -97,7 +97,7 @@ To survive context compactions and memory truncation, states are grounded physic
 ```
 
 ### Anti-Bloat & Anti-Staleness Guarantees
-1. **$O(1)$ Bounded Storage**: Strictly 6 discrete slots (`00_` $\rightarrow$ `99_`). Directory never exceeds 6 active files ($<50\text{KB}$).
+1. **Bounded Storage**: Strictly 6 discrete slots (`00_` $\rightarrow$ `99_`). Directory never exceeds 6 active files ($<50\text{KB}$).
 2. **In-Place Overwrites**: `99_next_action.md` is overwritten in place every turn, never appended.
 3. **Repository Cleanliness**: `.state/.gitignore` isolates transient latches from git staging and PR diffs.
 4. **Archive & Prune**: `/unix-clean` rolls finished tickets into `.state/archive/<ticket>.log` and purges active slots.
@@ -153,17 +153,18 @@ Step-by-step walkthrough for first-time users:
 ```text
 /unix-primitives convert CLAUDE.md
 ```
-* **Output**: Writes refactored instructions into auto-incrementing `CLAUDE.01.md`.
+* **Staging**: The script scans `CLAUDE.md`, computes friction telemetry, and prepares an auto-incrementing non-markdown target `CLAUDE.01.converted` (so agent discovery engines ignore intermediate iterations).
+* **Rewrite**: The LLM performs the semantic refactoring into `CLAUDE.01.converted`.
 * **Original**: `CLAUDE.md` remains untouched.
 * Inspect the diff to compare fragile prose against canonical formalisms:
   ```bash
-  diff -u CLAUDE.md CLAUDE.01.md
+  diff -u CLAUDE.md CLAUDE.01.converted
   ```
 * When ready to apply changes in place:
   ```text
   /unix-primitives rewrite CLAUDE.md
   ```
-  *(Saves backup to `CLAUDE.md_original` and updates `CLAUDE.md`)*.
+  *(Prepares `CLAUDE.md_original` backup before LLM updates `CLAUDE.md` in place)*.
 
 ---
 
@@ -178,7 +179,7 @@ When beginning work on a ticket or feature in any repository:
   * `.state/10_ticket.md` (task requirements & RFC 822 headers)
   * `.state/Makefile` (real GNU Makefile DAG)
   * `.state/.gitignore` (prevents transient latches from entering git commits)
-* **Zero-Token Discovery**: If workspace contains `.agents/skills`, `/unix-init` automatically links `unix-*` skills locally into `.agents/skills/` so agents find them immediately on turn 1 without exploratory searches.
+* Run `state_manager.py link-agents` if local symlinking of skills into `.agents/skills/` is desired.
 
 
 ---
@@ -202,7 +203,7 @@ Inspect active runlevel state or recover after a long session:
 ```text
 /unix-status
 ```
-* **Compaction Recovery**: If context resets after 200k+ tokens, agent reads disk latches and resumes immediately with zero lost steps.
+* **Compaction Recovery**: If context resets after long sessions, agent reads physical disk latches and resumes directly from the latest completed milestone.
 * **Staleness Check**: Flags tasks older than 72 hours.
 
 ---
@@ -225,12 +226,32 @@ When ticket is merged and task is done:
 /unix-clean
 ```
 * Archives completed session to flat `.state/archive/PROJ-101.log`.
-* Purges active slots back to clean slate ($O(1)$ zero bloat).
+* Purges active slots back to clean slate (bounded storage without bloat).
+
+---
+
+## Validating the Premise: Empirical A/B Evaluation
+
+The numeric **friction score** emitted by `unix_primitives.py` is a static linting heuristic that measures token and pattern alignment with canonical Unix formalisms. It is **not** an empirical measurement of LLM capability or task performance.
+
+To empirically evaluate whether converting prompts to canonical Unix primitives improves reliability, test pass rates, or token efficiency on your own workloads, this repository includes an A/B evaluation harness in `eval/`:
+
+```bash
+# Verify the test matrix:
+python3 eval/run_ab.py --dry-run
+
+# Run A/B iterations with your agent CLI:
+export AGENT_CMD="my-agent --prompt {prompt_file} --dir {task_dir}"
+python3 eval/run_ab.py -n 5
+```
+
+The harness runs tasks across prompt variants in isolated sandboxes, executes deterministic validation scripts (`check.sh`), and computes pass rates with a Wilson 95% binomial confidence interval. See [eval/README.md](eval/README.md) for full harness documentation.
 
 ---
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
 
 

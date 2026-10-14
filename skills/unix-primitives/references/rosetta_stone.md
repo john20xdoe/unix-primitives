@@ -4,6 +4,24 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
 
 ---
 
+## Metaphor vs. Mechanism: Physical Enforcement vs. Prompt Framing
+
+Not every Unix primitive can be physically enforced by an LLM prompt harness. Understanding the distinction prevents false security assumptions:
+
+| Primitive | Class | Mechanism / Limitation |
+|-----------|-------|------------------------|
+| **GNU Makefile DAG (#1)** | **Physical Mechanism** | Real `make` execution via shell parses dependencies and uses filesystem `mtime`. |
+| **SysV init.d Latches (#2)** | **Physical Mechanism** | Real disk files in `.state/` with RFC 822 headers, read/written by Python engine and filesystem locks. |
+| **Unix Process Isolation (#3)** | **Physical Mechanism** (Subagents) | Spawning subagents creates fresh context memory arena; child exit reclaims tokens. |
+| **POSIX Signals (#12)** | **Metaphor** | The agent has no OS signal handler. Traps like `SIGINT` or `SIGTERM` are prompt metaphors for user interruption and abort handling. |
+| **Two-Phase Commit (#6)** | **Metaphor / Process** | Prompt-guided transaction protocol (`PREPARE` → `COMMIT`). LLM coordinates stages, but there is no atomic ACID engine unless backed by git worktrees or scratch directories. |
+| **Least Privilege (#16)** | **Metaphor (in prompt) vs. Mechanism (in harness)** | Declaring `CAP_WRITE_FS: DENY` inside prompt text is prompt-level framing. For physical enforcement, configure harness-level tool restrictions (e.g., read-only subagent types omitting write tools from declarations) rather than relying on prompt prose. |
+| **File Locking (#13)** | **Physical Mechanism** | Implemented via OS `fcntl.flock` on `.state/.lock` within the `state_manager.py` tool. |
+| **Fail-Fast Shell (#14)** | **Physical Mechanism** | Real `set -euo pipefail` in shell scripts halts execution on non-zero exit codes. |
+| **Speculative COW (#15)** | **Physical Mechanism** | Real `git worktree` scratch directories isolate experimental changes on physical disk. |
+
+---
+
 ### 1. GNU Makefile DAG (Execution Dependency Graph)
 * **Replaces**: *"Do step 1, then step 2. If tests fail return to step 1."*
 * **Primitive**:
@@ -54,7 +72,7 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
     # Execute deep reads; write findings to disk: state/artifacts/archaeology.md
     exit 0
   ```
-* **Invariant**: Context window is non-renewable memory. Process boundary acts as arena garbage collector. Ephemeral child context destroyed on `exit`; orchestrator stays $<30\text{k}$ tokens.
+* **Invariant**: Context window is non-renewable memory. Process boundary acts as arena garbage collector. Ephemeral child context destroyed on `exit`; orchestrator context remains compact.
 
 ---
 
@@ -263,7 +281,7 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
     CAP_EXEC_SHELL: DENY (no run_command)
     Umask: 0444 (read-only enforcement)
   ```
-* **Invariant**: Security and tool constraints enforced structurally, not by English pleading.
+* **Invariant**: Security and tool constraints should be enforced structurally by the harness (e.g. read-only subagent tool definitions omitting write tools entirely), not merely by English pleading or prompt text capabilities.
 
 ---
 
@@ -276,4 +294,4 @@ Map fragile prompt prose (`Freq ≈ 0`) to canonical Unix & CS formalisms (`Freq
     Eviction: Drop oldest lines on overflow; retain head (first 5 lines) + tail (last 45 lines).
     Emit: "[... skipped M intermediate log lines ...] \n" + tail
   ```
-* **Invariant**: Constant token ceiling $O(1)$ on diagnostic outputs regardless of subprocess log volume.
+* **Invariant**: Bounded token ceiling on diagnostic outputs regardless of subprocess log volume.

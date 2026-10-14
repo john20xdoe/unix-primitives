@@ -17,13 +17,17 @@ PATTERNS = [
     {
         "id": "MAKEFILE_DAG",
         "name": "Imperative Execution Checklist / GOTO Loop",
-        "regex": r"(?i)(?:step\s*\d+[:\.]?[\s\S]{1,60}(?:then|next|after|goto|return\s*to)|(?:\b1\.\s+[^\n]+(?:\n\s*2\.\s+[^\n]+)+)|(?:first\b[\s\S]{1,60}\bthen\b[\s\S]{1,60}\b(?:finally|after))|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)|(?:before\s+(?:proceeding|moving\s+to|continuing)|prerequisite|depends\s+on\s+step))",
+        "regex": r"(?i)(?:step\s*\d+[:\.]?[\s\S]{1,60}(?:then|next|after|goto|return\s*to)|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:first\b[\s\S]{1,60}\bthen\b[\s\S]{1,60}\b(?:finally|after))|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)|(?:before\s+(?:proceeding|moving\s+to|continuing)|prerequisite|depends\s+on\s+step)|(?:\b1\.\s+[\s\S]*?\b2\.\s+[\s\S]*?(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
         "canonical": "GNU Makefile DAG (target: prerequisites, .PHONY)",
         "explanation": "Replace linear checklist with backward-chaining Makefile targets and file mtime invalidation.",
         "snippet": """.PHONY: finish ci-gate
 finish: pr-merged
 pr-merged: ci-gate human-landing-approval
-ci-gate: test-green lint-green"""
+ci-gate: test-green lint-green""",
+        "weight": 10,
+        "keywords": ["execution checklist", "order of operations", "return to step", "steps to follow", "goto step"],
+        "reason_hit": "Sequential execution checklist / workflow GOTO loop",
+        "reason_kw": "Imperative execution checklist -> GNU Makefile DAG",
     },
     {
         "id": "SYSV_INITD",
@@ -35,16 +39,24 @@ ci-gate: test-green lint-green"""
   00_governance.md     (immutable read-only)
   10_ticket.md         (requirements)
   20_plan_approved.md  (human signoff latch)
-  99_next_action.md    (volatile pointer)"""
+  99_next_action.md    (volatile pointer)""",
+        "weight": 10,
+        "keywords": ["progress tracking", "compaction amnesia", "mark tasks as done", "task checklist"],
+        "reason_hit": "Mutable task tracking / compaction-vulnerable scratchpad",
+        "reason_kw": "Interactive progress tracking -> SysV /etc/init.d runlevel latches",
     },
     {
         "id": "PROCESS_ISOLATION",
         "name": "Unbounded Context Subagent Delegation",
-        "regex": r"(?i)(?:\b(?:subagents?|sub-agents?|child\s+agents?|worker\s+agents?)\b|(?:spawn|delegate\s+to)\s+(?:an?\s+)?(?:subagent|child\s+agent|worker|agent)|(?:clean\s+up|delete|remove)\s+(?:temporary|temp|scratch)\s+(?:files?|artifacts?))",
+        "regex": r"(?i)(?:(?:spawn|delegate\s+to)\s+(?:an?\s+)?(?:subagent|child\s+agent|worker|agent)|(?:clean\s+up|delete|remove)\s+(?:temporary|temp|scratch)\s+(?:files?|artifacts?))",
         "canonical": "Unix Process Control (fork() / waitpid() / trap EXIT)",
-        "explanation": "Treat process boundaries as arena garbage collectors. Retain compact orchestrator context (<30k tokens).",
+        "explanation": "Treat process boundaries as arena garbage collectors. Retain compact orchestrator context.",
         "snippet": """PID 1 (Orchestrator): fork(role="Archaeology") -> waitpid()
-Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0"""
+Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0""",
+        "weight": 10,
+        "keywords": ["child agent", "worker agent", "unbounded context", "subagent delegation"],
+        "reason_hit": "Subagent delegation / memory management",
+        "reason_kw": "Worker agent delegation -> Unix process fork()/waitpid() arena GC",
     },
     {
         "id": "EBNF_GRAMMAR",
@@ -57,18 +69,26 @@ Child: trap 'rm -rf /tmp/scratch_$$' EXIT -> write disk artifact -> exit 0"""
 
 (* Flores Negotiation Grammar: !Customer vs ?Performer *)
 conversation ::= !request ?assert_reality ( ?promise | ?counter_offer | ?decline )
-(* Invariant: ?promise forbidden until ?assert verifies physical API existence *)"""
+(* Invariant: ?promise forbidden until ?assert verifies physical API existence *)""",
+        "weight": 10,
+        "keywords": ["json only", "format strictly", "pause gate", "wait for user confirmation", "stop and ask before"],
+        "reason_hit": "Output format constraints / pause-tool gating conflict",
+        "reason_kw": "Unconstrained response grammar -> RFC 5234 EBNF mutual exclusion",
     },
     {
         "id": "DESIGN_BY_CONTRACT",
         "name": "Sunny-Day / Vague Test Prompting",
-        "regex": r"(?i)(?:(?:test|cover)\s+(?:all\s+)?(?:edge\s*cases?|corner\s*cases?|boundary|failures?|errors?)|(?:ensure|verify|make\s+sure)\s+(?:that\s+)?(?:all\s+)?tests?\s+pass|(?:write\s+(?:unit\s+)?tests?|tdd|test-driven)\s+(?:first|before|for\s+every)|(?:acceptance\s+criteria|preconditions?|postconditions?|invariants?))",
+        "regex": r"(?i)(?:(?:test|cover)\s+(?:all\s+)?(?:edge\s*cases?|corner\s*cases?|boundary|failures?|errors?)|(?:ensure|verify|make\s+sure)\s+(?:that\s+)?(?:all\s+)?tests?\s+pass|(?:write\s+(?:unit\s+)?tests?|tdd|test-driven)\s+(?:first|before|for\s+every))",
         "canonical": "Design-by-Contract (@requires, @ensures) + QuickCheck Laws",
         "explanation": "Specify formal Hoare pre/post conditions and algebraic laws (idempotence, round-trip) to kill boundary mutants.",
         "snippet": """@requires tokens > 0
 @ensures  result == true ==> balance == old(balance) - tokens
 @invariant balance >= 0
-QuickCheck Laws: idempotence, round-trip, boundary probe"""
+QuickCheck Laws: idempotence, round-trip, boundary probe""",
+        "weight": 10,
+        "keywords": ["test all edge cases", "sunny-day testing", "test-driven prompt", "verify all tests pass"],
+        "reason_hit": "Informal testing / edge-case pleading",
+        "reason_kw": "Informal test criteria -> Design-by-Contract (@requires/@ensures)",
     },
     {
         "id": "TWO_PHASE_COMMIT",
@@ -77,7 +97,11 @@ QuickCheck Laws: idempotence, round-trip, boundary probe"""
         "canonical": "Database WAL + Two-Phase Commit (2PC: PREPARE -> COMMIT/ROLLBACK)",
         "explanation": "Enforce atomic cross-package mutations. Commit iff all participants vote PREPARED, else full ROLLBACK.",
         "snippet": """PHASE 1 (PREPARE): Verify scratch worktree per participant
-PHASE 2 (DECIDE): If all PREPARED -> COMMIT, else ROLLBACK"""
+PHASE 2 (DECIDE): If all PREPARED -> COMMIT, else ROLLBACK""",
+        "weight": 10,
+        "keywords": ["refactor across multiple files", "all or nothing changes", "monorepo refactor", "atomic updates"],
+        "reason_hit": "Cross-module refactoring without atomicity guarantees",
+        "reason_kw": "Multi-file mutations -> Database WAL + 2PC",
     },
     {
         "id": "CIRCUIT_BREAKER",
@@ -86,7 +110,11 @@ PHASE 2 (DECIDE): If all PREPARED -> COMMIT, else ROLLBACK"""
         "canonical": "Distributed Circuit Breaker FSM (CLOSED -> OPEN) + Idempotency Keys",
         "explanation": "Halt repetitive retry loops after k=2 failures. Trip to OPEN state and escalate immediately.",
         "snippet": """threshold: k=2
-If failures >= 2: STATE = OPEN -> HARD HALT. Suppress retry. Escalate to human."""
+If failures >= 2: STATE = OPEN -> HARD HALT. Suppress retry. Escalate to human.""",
+        "weight": 10,
+        "keywords": ["retry until", "apology death spiral", "if failed try again", "repeat on failure", "when stuck"],
+        "reason_hit": "Unbounded retry loop / apology death spiral",
+        "reason_kw": "Retry loops -> Distributed Circuit Breaker FSM (k=2)",
     },
     {
         "id": "GIT_BISECT",
@@ -95,18 +123,26 @@ If failures >= 2: STATE = OPEN -> HARD HALT. Suppress retry. Escalate to human."
         "canonical": "git bisect (Logarithmic Binary Search O(log2 N))",
         "explanation": "Partition causal search space into binary halves using midpoint probes rather than linear scans.",
         "snippet": """mid = (low + high) // 2
-Probe mid -> adjust bounds -> converge in ceil(log2 N) steps."""
+Probe mid -> adjust bounds -> converge in ceil(log2 N) steps.""",
+        "weight": 10,
+        "keywords": ["binary search commits", "git bisect", "find regression commit", "figure out what broke"],
+        "reason_hit": "Linear guesswork debugging / regression tracing",
+        "reason_kw": "Ad-hoc debugging -> Logarithmic binary partitioning O(log2 N)",
     },
     {
         "id": "LKML_PATCH_SERIES",
         "name": "Vague Commit Decomposition",
-        "regex": r"(?i)(?:(?:clean|logical|atomic|small)\s+commits?|break\s+(?:down\s+)?changes\s+into\s+commits|commit\s+messages?\s+(?:guidelines?|format|convention)|conventional\s+commits?|\b(?:feat|fix|chore|refactor|docs|test)\s*\(?[^)]*\)?\s*:)",
+        "regex": r"(?i)(?:(?:clean|logical|atomic|small)\s+commits?|break\s+(?:down\s+)?changes\s+into\s+commits|commit\s+messages?\s+(?:guidelines?|format|convention))",
         "canonical": "LKML [PATCH 0/N] Series + git rebase --exec",
         "explanation": "Require topological commit series where every intermediate commit independently compiles and tests pass.",
         "snippet": """[PATCH 0/N]: Architecture DAG
 [PATCH 1/N]: Domain interfaces & types
 [PATCH N/N]: Wireup & integration tests
-Invariant: git rebase --exec "make test" passes on every commit."""
+Invariant: git rebase --exec "make test" passes on every commit.""",
+        "weight": 10,
+        "keywords": ["clean commit guidelines", "break down changes into commits", "commit decomposition", "topological commits"],
+        "reason_hit": "Vague commit decomposition / Conventional Commits guidelines",
+        "reason_kw": "Commit structuring -> LKML [PATCH 0/N] series",
     },
     {
         "id": "COMPILER_DIAGNOSTICS",
@@ -118,7 +154,11 @@ Invariant: git rebase --exec "make test" passes on every commit."""
   --> <file>:<line>:<col>
    = severity: BLKR | WARN | NIT
    = invariant: <breached rule>
-   = fix: <concrete diff>"""
+   = fix: <concrete diff>""",
+        "weight": 10,
+        "keywords": ["polite code review", "check code for bugs", "superficial review", "code quality checklist"],
+        "reason_hit": "Polite / superficial code review checklist",
+        "reason_kw": "Code review -> Multi-pass compiler diagnostics (error[SCAR-XX])",
     },
     {
         "id": "STREAM_DEMUX",
@@ -128,7 +168,11 @@ Invariant: git rebase --exec "make test" passes on every commit."""
         "explanation": "Strictly segregate machine-parsable payloads (stdout) from diagnostic notes (stderr).",
         "snippet": """stdout (FD 1): Pure payload (raw JSON / diff / AST).
 stderr (FD 2): Diagnostic progress & human notes.
-exit code: 0 on success, >0 on failure."""
+exit code: 0 on success, >0 on failure.""",
+        "weight": 10,
+        "keywords": ["mix data with text", "payload and comments", "no conversational text", "stream demux"],
+        "reason_hit": "Mixed payload and conversational prose in single channel",
+        "reason_kw": "Channel mixing -> POSIX stream demux (FD 1 vs FD 2)",
     },
     {
         "id": "POSIX_SIGNALS",
@@ -137,38 +181,54 @@ exit code: 0 on success, >0 on failure."""
         "canonical": "POSIX Signal Handlers (SIGINT, SIGTERM, SIGHUP)",
         "explanation": "Bind interruptions to deterministic signal traps: SIGINT (checkpoint), SIGTERM (rollback & clean exit).",
         "snippet": """SIGINT  -> trap checkpoint_and_pause: flush state to `99_next_action.md`
-SIGTERM -> trap rollback_and_exit: rollback uncommitted WAL, exit 0"""
+SIGTERM -> trap rollback_and_exit: rollback uncommitted WAL, exit 0""",
+        "weight": 10,
+        "keywords": ["handle interruption", "graceful teardown", "signal trap", "handle cancellation gracefully"],
+        "reason_hit": "Unstructured cancellation / teardown handling",
+        "reason_kw": "Interruption handling -> POSIX signal traps (SIGINT/SIGTERM)",
     },
     {
         "id": "FILE_LOCKING",
         "name": "Unsynchronized Concurrent Agent Writes",
-        "regex": r"(?i)(?:concurrent\s+(?:writes?|edits?|agents?)|avoid\s+(?:conflicting\s+edits?|race\s+conditions?|concurrent\s+conflicts?)|make\s+sure\s+(?:agents?|subagents?)\s+don'?t\s+overwrite|file\s+locks?)",
+        "regex": r"(?i)(?:concurrent\s+(?:writes?|edits?|agents?)|avoid\s+(?:conflicting\s+edits?|race\s+conditions?|concurrent\s+conflicts?)|make\s+sure\s+(?:agents?|subagents?)\s+don'?t\s+overwrite)",
         "canonical": "Advisory File Locking (flock(2) / <file>.lock)",
         "explanation": "Enforce atomic lockfile acquisition before mutating files across concurrent subagents.",
         "snippet": """acquire_lock("<file>.lock", timeout_ms=3000)
 # mutate file
-release_lock("<file>.lock")"""
+release_lock("<file>.lock")""",
+        "weight": 10,
+        "keywords": ["concurrent agent writes", "conflicting edits", "race condition edits", "agents overwrite"],
+        "reason_hit": "Unsynchronized concurrent agent writes",
+        "reason_kw": "Concurrent mutations -> Advisory file locking flock(2)",
     },
     {
         "id": "FAIL_FAST_SHELL",
         "name": "Permissive / Silent Command Error Swallowing",
-        "regex": r"(?i)(?:(?:stop|abort|fail|halt)\s+(?:immediately\s+)?(?:if|on)\s+(?:any\s+)?(?:error|failure|command\s+fails)|set\s+-e|fail[- ]fast\s+shell|(?:run|execute)\s+commands?[\s\S]{1,60}(?:abort|stop)\s+on\s+error)",
+        "regex": r"(?i)(?:(?:stop|abort|fail|halt)\s+(?:immediately\s+)?(?:if|on)\s+(?:any\s+)?(?:error|failure|command\s+fails)|(?:run|execute)\s+commands?[\s\S]{1,60}(?:abort|stop)\s+on\s+error)",
         "canonical": "set -euo pipefail (Fail-Fast Shell Invariant)",
         "explanation": "Enforce strict zero-tolerance error propagation on script execution.",
         "snippet": """set -euo pipefail
 # -e: exit on error
 # -u: error on unset variable
-# -o pipefail: fail if any pipe segment fails"""
+# -o pipefail: fail if any pipe segment fails""",
+        "weight": 10,
+        "keywords": ["fail-fast shell", "silent error swallowing", "abort on error", "stop on command failure"],
+        "reason_hit": "Permissive silent script error swallowing",
+        "reason_kw": "Script execution -> set -euo pipefail invariant",
     },
     {
         "id": "SPECULATIVE_COW",
         "name": "Unhedged In-Place Trial Edits",
-        "regex": r"(?i)(?:try\s+(?:an?\s+)?edit[\s\S]{1,60}(?:undo|revert)|speculative\s+changes?|git\s+worktree|scratch\s+worktree|temporary\s+branch[\s\S]{1,60}revert)",
+        "regex": r"(?i)(?:try\s+(?:an?\s+)?edit[\s\S]{1,60}(?:undo|revert)|speculative\s+changes?|temporary\s+branch[\s\S]{1,60}revert)",
         "canonical": "Copy-On-Write Scratch Worktrees (git worktree)",
         "explanation": "Isolate experimental mutations in ephemeral git worktree; fast-forward merge only on test pass.",
         "snippet": """git worktree add -b scratch/tx ../scratch-tx HEAD
 # test passes -> fast-forward merge
-# test fails -> git worktree remove --force ../scratch-tx"""
+# test fails -> git worktree remove --force ../scratch-tx""",
+        "weight": 10,
+        "keywords": ["speculative edit", "undo if failed", "temporary branch revert", "trial edits"],
+        "reason_hit": "Unhedged in-place speculative trial edits",
+        "reason_kw": "Trial modifications -> Copy-On-Write scratch worktrees",
     },
     {
         "id": "LEAST_PRIVILEGE",
@@ -179,16 +239,24 @@ release_lock("<file>.lock")"""
         "snippet": """Capabilities:
   CAP_READ_FS: ALLOW
   CAP_WRITE_FS: DENY (strip write_to_file / replace_file_content)
-  CAP_EXEC_SHELL: DENY"""
+  CAP_EXEC_SHELL: DENY""",
+        "weight": 10,
+        "keywords": ["read-only mode", "do not modify any files", "forbidden to edit", "least privilege"],
+        "reason_hit": "Conversational pleading for read-only / tool restrictions",
+        "reason_kw": "Tool restrictions -> Principle of Least Privilege (chmod r--)",
     },
     {
         "id": "RING_BUFFER",
         "name": "Unbounded Log Output / Context Flooding",
-        "regex": r"(?i)(?:(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|save\s+tokens?\b|economize\s+tokens?\b|context\s+(?:bloat|flooding))",
+        "regex": r"(?i)(?:(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|context\s+(?:bloat|flooding))",
         "canonical": "Circular Ring Buffer / Tail Truncation (logrotate)",
         "explanation": "Cap tool output with constant-bound FIFO ring buffer: retain head (5 lines) + tail (45 lines).",
         "snippet": """Buffer Capacity: N = 50 lines (Ring Buffer)
-Overflow: drop intermediate lines -> emit: "[... skipped M lines ...]\\n" + tail"""
+Overflow: drop intermediate lines -> emit: "[... skipped M lines ...]\\n" + tail""",
+        "weight": 10,
+        "keywords": ["truncate long logs", "terminal context flooding", "context bloat", "tail output"],
+        "reason_hit": "Unbounded log output / terminal context flooding",
+        "reason_kw": "Terminal logs -> Circular Ring Buffer (O(1) bound)",
     }
 ]
 
@@ -199,8 +267,15 @@ def strip_frontmatter(text: str) -> str:
         return text[match.end():]
     return text
 
+def strip_code(text: str) -> str:
+    """Strip fenced code blocks and inline code so code snippets don't trigger false positives."""
+    text = re.sub(r"```+[\s\S]*?```+", "", text)
+    text = re.sub(r"`+[^`\n]+`+", "", text)
+    return text
+
 def scan_text(text: str, strip_fm: bool = True) -> List[Dict]:
     body = strip_frontmatter(text) if strip_fm else text
+    body = strip_code(body)
     findings = []
     for p in PATTERNS:
         matches = list(re.finditer(p["regex"], body))
@@ -226,7 +301,7 @@ SUBSYSTEMS = [
         "name": "State Persistence & Lifecycle",
         "canonical": "SysV Runlevels + RFC 822 / POSIX Signals",
         "primitives": ["SYSV_INITD", "POSIX_SIGNALS"],
-        "description": "Compaction-immune disk latches (00_ -> 99_) & signal traps (SIGINT/SIGTERM)",
+        "description": "Compaction-resilient disk latches (00_ -> 99_) & signal traps (SIGINT/SIGTERM)",
     },
     {
         "id": "PROCESS_CONCURRENCY",
@@ -277,121 +352,35 @@ for sub in SUBSYSTEMS:
         PRIMITIVE_SUBSYSTEM_MAP[pid] = sub
 
 def calculate_friction_score(findings: List[Dict], total_lines: int) -> int:
-    if not findings:
+    """Calculate friction score normalized by finding weights and document density.
+
+    Formula:
+      weighted = sum(weight[id] * min(len(matches), 3) for finding in findings)
+      density = weighted / max(1.0, total_lines / 50.0)
+      score = min(100, round(density * 4))
+    """
+    if not findings or total_lines <= 0:
         return 0
-    raw_score = sum(len(f["matches"]) * 10 for f in findings)
-    return min(100, max(15, raw_score))
+    weighted = sum(f["pattern"].get("weight", 10) * min(len(f["matches"]), 3) for f in findings)
+    density = weighted / max(1.0, total_lines / 50.0)
+    return min(100, round(density * 4))
+
 
 def classify_file_suitability(content: str, rel_path: str, findings: List[Dict]) -> Dict:
     finding_ids = {f["pattern"]["id"] for f in findings}
     body = strip_frontmatter(content)
-    lines_lower = body.lower()
-    
+    body_clean = strip_code(body).lower()
+
     detected_primitives: Dict[str, str] = {}
-    
-    # 1. MAKEFILE_DAG
-    if "MAKEFILE_DAG" in finding_ids:
-        detected_primitives["MAKEFILE_DAG"] = "Sequential execution checklist / workflow GOTO loop"
-    elif any(k in lines_lower for k in ["workflow", "pipeline", "execution step", "steps to follow", "build steps", "ci-gate"]):
-        detected_primitives["MAKEFILE_DAG"] = "Multi-stage process / execution pipeline"
-    elif re.search(r"```(?:bash|sh)\b[\s\S]*?(?:npm|pytest|cargo|make|python3|pip|docker|git|mvn|gradle)", content):
-        detected_primitives["MAKEFILE_DAG"] = "Chains shell build/test commands into targets"
 
-    # 2. SYSV_INITD
-    if "SYSV_INITD" in finding_ids:
-        detected_primitives["SYSV_INITD"] = "Mutable task tracking / compaction-vulnerable scratchpad"
-    elif re.search(r"-\s*\[[ xX]?\]", content) or any(k in lines_lower for k in ["todo", "checklist", "progress tracking", "task list", "scratchpad"]):
-        detected_primitives["SYSV_INITD"] = "Interactive todo/checklist -> Externalize to physical disk latches (00_ to 99_)"
-
-    # 3. PROCESS_ISOLATION
-    if "PROCESS_ISOLATION" in finding_ids:
-        detected_primitives["PROCESS_ISOLATION"] = "Subagent delegation / memory management"
-    elif any(k in lines_lower for k in ["subagent", "sub-agent", "child agent", "worker agent", "delegate to"]):
-        detected_primitives["PROCESS_ISOLATION"] = "Worker agent delegation -> Bound via fork()/waitpid() arena GC"
-
-    # 4. EBNF_GRAMMAR
-    if "EBNF_GRAMMAR" in finding_ids:
-        detected_primitives["EBNF_GRAMMAR"] = "Output format constraints / pause-tool gating conflict"
-    elif any(k in lines_lower for k in ["json only", "format strictly", "pause gate", "wait for user", "stop and ask before"]):
-        detected_primitives["EBNF_GRAMMAR"] = "Unconstrained response grammar -> Enforce hard XOR mutual exclusion"
-
-    # 5. DESIGN_BY_CONTRACT
-    if "DESIGN_BY_CONTRACT" in finding_ids:
-        detected_primitives["DESIGN_BY_CONTRACT"] = "Informal testing / edge-case pleading"
-    elif any(k in lines_lower for k in ["unit test", "edge case", "acceptance criteria", "invariants", "precondition", "postcondition"]):
-        detected_primitives["DESIGN_BY_CONTRACT"] = "Informal test criteria -> Formalize with @requires/@ensures and QuickCheck laws"
-
-    # 6. TWO_PHASE_COMMIT
-    if "TWO_PHASE_COMMIT" in finding_ids:
-        detected_primitives["TWO_PHASE_COMMIT"] = "Cross-module refactoring without atomicity guarantees"
-    elif any(k in lines_lower for k in ["refactor across", "atomic change", "all or nothing", "multi-file refactor"]):
-        detected_primitives["TWO_PHASE_COMMIT"] = "Multi-file mutations -> Enforce WAL + 2PC (PREPARE -> COMMIT/ROLLBACK)"
-
-    # 7. CIRCUIT_BREAKER
-    if "CIRCUIT_BREAKER" in finding_ids:
-        detected_primitives["CIRCUIT_BREAKER"] = "Unbounded retry loop / apology death spiral"
-    elif any(k in lines_lower for k in ["retry until", "if failed try again", "when stuck", "repeat on failure"]):
-        detected_primitives["CIRCUIT_BREAKER"] = "Retry loops -> Trip to OPEN at k=2 repeated failures with hard halt"
-
-    # 8. GIT_BISECT
-    if "GIT_BISECT" in finding_ids:
-        detected_primitives["GIT_BISECT"] = "Linear guesswork debugging / regression tracing"
-    elif any(k in lines_lower for k in ["binary search", "git bisect", "find regression", "figure out what broke", "root cause"]):
-        detected_primitives["GIT_BISECT"] = "Ad-hoc debugging -> Logarithmic binary partitioning O(log2 N)"
-
-    # 9. LKML_PATCH_SERIES
-    if "LKML_PATCH_SERIES" in finding_ids:
-        detected_primitives["LKML_PATCH_SERIES"] = "Vague commit decomposition / Conventional Commits guidelines"
-    elif any(k in lines_lower for k in ["clean commit", "logical commit", "commit message convention", "patch series"]):
-        detected_primitives["LKML_PATCH_SERIES"] = "Commit structuring -> LKML [PATCH 0/N] series with git rebase --exec invariant"
-
-    # 10. COMPILER_DIAGNOSTICS
-    if "COMPILER_DIAGNOSTICS" in finding_ids:
-        detected_primitives["COMPILER_DIAGNOSTICS"] = "Polite / superficial code review checklist"
-    elif any(k in lines_lower for k in ["code review", "review the diff", "check for bugs", "code quality checklist"]):
-        detected_primitives["COMPILER_DIAGNOSTICS"] = "Code review -> Multi-pass compiler diagnostics (error[SCAR-XX])"
-
-    # 11. STREAM_DEMUX
-    if "STREAM_DEMUX" in finding_ids:
-        detected_primitives["STREAM_DEMUX"] = "Mixed payload and conversational prose in single channel"
-    elif any(k in lines_lower for k in ["stdout", "stderr", "mix data", "payload and comments", "no conversational text"]):
-        detected_primitives["STREAM_DEMUX"] = "Channel mixing -> POSIX stream demux (FD 1 pure payload vs FD 2 diagnostics)"
-
-    # 12. POSIX_SIGNALS
-    if "POSIX_SIGNALS" in finding_ids:
-        detected_primitives["POSIX_SIGNALS"] = "Unstructured cancellation / teardown handling"
-    elif any(k in lines_lower for k in ["sigint", "sigterm", "cancellation", "graceful shutdown", "clean exit"]):
-        detected_primitives["POSIX_SIGNALS"] = "Interruption handling -> POSIX signal traps (SIGINT checkpoint, SIGTERM rollback)"
-
-    # 13. FILE_LOCKING
-    if "FILE_LOCKING" in finding_ids:
-        detected_primitives["FILE_LOCKING"] = "Unsynchronized concurrent agent writes"
-    elif any(k in lines_lower for k in ["concurrent write", "race condition", "file lock", "flock"]):
-        detected_primitives["FILE_LOCKING"] = "Concurrent mutations -> Advisory file locking (flock(2) / <file>.lock)"
-
-    # 14. FAIL_FAST_SHELL
-    if "FAIL_FAST_SHELL" in finding_ids:
-        detected_primitives["FAIL_FAST_SHELL"] = "Permissive silent script error swallowing"
-    elif any(k in lines_lower for k in ["set -e", "pipefail", "fail-fast", "stop on error"]):
-        detected_primitives["FAIL_FAST_SHELL"] = "Script execution -> set -euo pipefail fail-fast invariant"
-
-    # 15. SPECULATIVE_COW
-    if "SPECULATIVE_COW" in finding_ids:
-        detected_primitives["SPECULATIVE_COW"] = "Unhedged in-place speculative trial edits"
-    elif any(k in lines_lower for k in ["scratch worktree", "git worktree", "speculative edit", "undo if failed"]):
-        detected_primitives["SPECULATIVE_COW"] = "Trial modifications -> Copy-On-Write scratch worktrees (git worktree)"
-
-    # 16. LEAST_PRIVILEGE
-    if "LEAST_PRIVILEGE" in finding_ids:
-        detected_primitives["LEAST_PRIVILEGE"] = "Conversational pleading for read-only / tool restrictions"
-    elif any(k in lines_lower for k in ["read-only mode", "do not modify files", "forbidden to edit", "least privilege"]):
-        detected_primitives["LEAST_PRIVILEGE"] = "Tool restrictions -> Principle of Least Privilege / Capabilities (chmod r--)"
-
-    # 17. RING_BUFFER
-    if "RING_BUFFER" in finding_ids:
-        detected_primitives["RING_BUFFER"] = "Unbounded log output / terminal context flooding"
-    elif any(k in lines_lower for k in ["ring buffer", "logrotate", "truncate log", "tail output", "save tokens"]):
-        detected_primitives["RING_BUFFER"] = "Terminal logs -> Circular Ring Buffer (head 5 + tail 45 lines, O(1) bound)"
+    for p in PATTERNS:
+        pid = p["id"]
+        if pid in finding_ids:
+            detected_primitives[pid] = p.get("reason_hit", p.get("name", pid))
+        else:
+            kws = p.get("keywords", [])
+            if any(k in body_clean for k in kws):
+                detected_primitives[pid] = p.get("reason_kw", p.get("name", pid))
 
     # Map detected primitives into subsystems
     subsystem_matches: Dict[str, List[Dict]] = {}
@@ -419,6 +408,7 @@ def classify_file_suitability(content: str, rel_path: str, findings: List[Dict])
         "subsystem_matches": subsystem_matches,
         "is_reference": is_reference,
     }
+
 
 def format_scan_report(filepath: str, findings: List[Dict], total_lines: int, content: str = "") -> str:
     score = calculate_friction_score(findings, total_lines)
@@ -620,13 +610,14 @@ def scan_directory(dir_path: str) -> None:
 def get_next_increment_path(target_path: str) -> str:
     dir_name = os.path.dirname(os.path.abspath(target_path))
     base_name = os.path.basename(target_path)
-    if "." in base_name and not base_name.startswith("."):
-        stem, ext = base_name.rsplit(".", 1)
-        ext = f".{ext}"
+    if base_name.endswith(".md"):
+        stem = base_name[:-3]
+    elif base_name.endswith(".markdown"):
+        stem = base_name[:-9]
     else:
-        stem, ext = base_name, ""
+        stem = base_name
 
-    pattern = re.compile(rf"^{re.escape(stem)}\.(\d{{2}}){re.escape(ext)}$")
+    pattern = re.compile(rf"^{re.escape(stem)}\.(\d{{2}})\.converted$")
     existing_nums = []
     if os.path.exists(dir_name):
         for fname in os.listdir(dir_name):
@@ -635,7 +626,7 @@ def get_next_increment_path(target_path: str) -> str:
                 existing_nums.append(int(m.group(1)))
 
     next_num = max(existing_nums, default=0) + 1
-    return os.path.join(dir_name, f"{stem}.{next_num:02d}{ext}")
+    return os.path.join(dir_name, f"{stem}.{next_num:02d}.converted")
 
 def get_backup_path(target_path: str) -> str:
     """Return backup path with '_original' suffix so Gemini/Antigravity ignores it during prompt discovery."""
@@ -688,6 +679,17 @@ def generate_subagent_prompt(target_path: str) -> str:
         except Exception:
             telemetry_lines.append(f"- `{f}`: (unable to read)")
 
+    catalog_sections = []
+    for sub in SUBSYSTEMS:
+        sec_lines = [f"[{sub['num']}] {sub['name']}:"]
+        for pid in sub["primitives"]:
+            p = PRIMITIVE_MAP.get(pid, {})
+            name = p.get("name", "")
+            explanation = p.get("explanation", "")
+            sec_lines.append(f"    * {pid}: {name}. Invariant: {explanation}")
+        catalog_sections.append("\n".join(sec_lines))
+    catalog_block = "\n\n".join(catalog_sections)
+
     prompt = f"""Role: Prompt Architecture Auditor
 Goal: Semantically audit target prompt/rule files and classify them across the 7 OS Subsystems and 17 Canonical Unix & CS Primitives.
 
@@ -695,36 +697,7 @@ Goal: Semantically audit target prompt/rule files and classify them across the 7
 {chr(10).join(telemetry_lines)}
 
 === CANONICAL CLASSIFICATION CONTRACT (7 OS SUBSYSTEMS / 17 PRIMITIVES) ===
-[1] Build & Execution DAGs:
-    * MAKEFILE_DAG (1): Sequential checklists, workflows, build/test chains. Invariant: Backward-chaining DAG + mtime invalidation.
-
-[2] State Persistence & Lifecycle:
-    * SYSV_INITD (2): Progress tracking, mutable todos, amnesia. Invariant: Externalized disk latches 00_ to 99_ + RFC 822 headers survive 200k+ compaction.
-    * POSIX_SIGNALS (12): Cancellation, teardown, interruption. Invariant: SIGINT checkpoint, SIGTERM rollback, SIGHUP reload traps.
-
-[3] Process Isolation & Concurrency:
-    * PROCESS_ISOLATION (3): Subagent delegation, unbounded context. Invariant: fork()/waitpid(), arena GC on exit 0, orchestrator <30k tokens.
-    * FILE_LOCKING (13): Concurrent agent writes, collisions. Invariant: Advisory lock flock(2) / <file>.lock mutual exclusion.
-    * LEAST_PRIVILEGE (16): Pleading not to touch files. Invariant: Principle of Least Privilege / Capabilities (chmod r--).
-
-[4] Protocols & Stream Demux:
-    * EBNF_GRAMMAR (4): Output formatting, pause gates, API hallucination prevention. Invariant: RFC 5234 production rules with strict XOR mutual exclusion between pause gate & tools + Flores negotiation (?Assert before ?Promise).
-    * STREAM_DEMUX (11): Mixed JSON payload & human comments. Invariant: POSIX stream demux (stdout FD 1 pure payload vs stderr FD 2 diagnostics).
-    * RING_BUFFER (17): Unbounded terminal logs, context flooding. Invariant: Circular ring buffer FIFO (head 5 + tail 45 lines, O(1) bound).
-
-[5] Verification & Diagnostics:
-    * DESIGN_BY_CONTRACT (5): Vague edge-case testing. Invariant: Design-by-Contract (@requires/@ensures/@invariant) + QuickCheck algebraic laws.
-    * COMPILER_DIAGNOSTICS (10): Polite code reviews. Invariant: Multi-pass compiler diagnostics (error[SCAR-XX] AST/lifetime/blast-radius passes).
-
-[6] Transaction Safety & Fault Tolerance:
-    * TWO_PHASE_COMMIT (6): Multi-file/package refactoring. Invariant: Database WAL + 2PC (PREPARE -> COMMIT/ROLLBACK), zero partial edits.
-    * CIRCUIT_BREAKER (7): Apology loops, retries. Invariant: Distributed Circuit Breaker FSM (CLOSED -> OPEN at k=2 repeated errors) + Idempotency keys.
-    * FAIL_FAST_SHELL (14): Silent command failures. Invariant: set -euo pipefail zero-tolerance error propagation.
-    * SPECULATIVE_COW (15): In-place speculative edits. Invariant: Ephemeral git worktree scratch sandbox, fast-forward merge only if green.
-
-[7] Search & Commit Topology:
-    * GIT_BISECT (8): Guess-based debugging. Invariant: Logarithmic binary partitioning O(log2 N).
-    * LKML_PATCH_SERIES (9): Commit decomposition. Invariant: LKML [PATCH 0/N] series, git rebase --exec "make test" invariant on every patch.
+{catalog_block}
 
 [Domain Reference & Invariants]:
     * Pure tech stack definitions, domain business rules, and architecture references. Preserve as markdown reference.

@@ -1,0 +1,1 @@
+Avoid conflicting edits during concurrent writes so agents do not overwrite.

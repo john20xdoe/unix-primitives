@@ -1,0 +1,1 @@
+Spawn child agent and clean up temporary scratch files.

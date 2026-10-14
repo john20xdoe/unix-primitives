@@ -1,0 +1,1 @@
+Stop immediately on any failure and abort on error.

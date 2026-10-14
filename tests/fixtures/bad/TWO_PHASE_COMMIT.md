@@ -1,0 +1,1 @@
+Refactoring across multiple files with atomic edits so never leave repo broken.
