@@ -40,25 +40,25 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 
 ## The 17 Canonical Primitives
 
-| # | Primitive | Fragile Prompt Replaced | Invariant Enforced |
-|---|---|---|---|
-| **1** | **GNU Makefile DAG** | Step 1 $\rightarrow$ Step 2 $\rightarrow$ Step 3 checklists | Backward-chaining DAG + `mtime` dirty-state invalidation |
-| **2** | **SysV `/etc/init.d` Runlevels** | Mutable `PROGRESS.md` | Lexical write-once disk latches (`00_` $\rightarrow$ `99_`) survive 200k+ compaction |
-| **3** | **Unix Process Control** | Unbounded subagent memory | Ephemeral child virtual memory; arena GC on `exit 0` |
-| **4** | **RFC 5234 EBNF** | Pleading for clean JSON & pause gates | Production grammar with hard XOR mutual exclusion |
-| **5** | **Design-by-Contract** | *"Test edge cases and errors"* | Hoare triples (`@requires`/`@ensures`) + QuickCheck algebraic laws |
-| **6** | **Two-Phase Commit + WAL** | *"Don't leave multi-file edits broken"* | Atomic cross-module transactions (`PREPARE` $\rightarrow$ `COMMIT`/`ROLLBACK`) |
-| **7** | **Circuit Breaker FSM** | *"Try a couple times then stop"* | $k=2$ threshold; `CLOSED` $\rightarrow$ `OPEN` trip halts apology loops |
-| **8** | **`git bisect`** | Linear guessing across files | Midpoint binary search converges in $O(\log_2 N)$ steps |
-| **9** | **LKML `[PATCH 0/N]` Series** | *"Make clean, logical commits"* | Topological commit DAG; `git rebase --exec` passes on every commit |
-| **10**| **Multi-Pass Compiler Diagnostics** | *"Review code carefully"* | Structured `error[SCAR-XX]` AST/lifetime/blast-radius passes |
-| **11**| **Stream Demux (`stdout`/`stderr`)** | Mixed JSON data with chat commentary | FD 1 (raw payload) isolated from FD 2 (diagnostics) |
-| **12**| **POSIX Signals (`SIGINT`/`SIGTERM`)** | Vague stop/cancel instructions | Explicit signal traps: `SIGINT` checkpoints state, `SIGTERM` rolls back |
-| **13**| **Advisory File Locking (`flock`)** | Concurrent agent edit collisions | Atomic `.lock` acquisition eliminates subagent race conditions |
-| **14**| **Fail-Fast Shell (`set -euo pipefail`)**| Silent command failure continuation | Zero-tolerance error bubbling halts script on first failure |
-| **15**| **Copy-On-Write Scratch Worktrees** | In-place risky speculative edits | Ephemeral `git worktree` sandbox; fast-forward merges only if green |
-| **16**| **Least Privilege (`chmod r--`)** | Conversational pleading not to touch files | Hard capability masking (read-only enforcement) |
-| **17**| **Ring Buffer & FIFO (`logrotate`)** | Context window log flooding | Bounded token ceiling on terminal output (head 5 + tail 45 lines) |
+| # | Primitive | Fragile Prompt Replaced | Invariant Enforced | Enforcement |
+|---|---|---|---|---|
+| **1** | **GNU Makefile DAG** | Step 1 $\rightarrow$ Step 2 $\rightarrow$ Step 3 checklists | Backward-chaining DAG + `mtime` dirty-state invalidation | Host |
+| **2** | **SysV `/etc/init.d` Runlevels** | Mutable `PROGRESS.md` | Lexical write-once disk latches (`00_` $\rightarrow$ `99_`) survive 200k+ compaction | Host |
+| **3** | **Unix Process Control** | Unbounded subagent memory | Ephemeral child virtual memory; arena GC on `exit 0` | Host |
+| **4** | **RFC 5234 EBNF** | Pleading for clean JSON & pause gates | Production grammar with hard XOR mutual exclusion | Prompt-only |
+| **5** | **Design-by-Contract** | *"Test edge cases and errors"* | Hoare triples (`@requires`/`@ensures`) + QuickCheck algebraic laws | Prompt-only |
+| **6** | **Two-Phase Commit + WAL** | *"Don't leave multi-file edits broken"* | Atomic cross-module transactions (`PREPARE` $\rightarrow$ `COMMIT`/`ROLLBACK`) | Prompt-only |
+| **7** | **Circuit Breaker FSM** | *"Try a couple times then stop"* | $k=2$ threshold; `CLOSED` $\rightarrow$ `OPEN` trip halts apology loops | Prompt-only |
+| **8** | **`git bisect`** | Linear guessing across files | Midpoint binary search converges in $O(\log_2 N)$ steps | Host |
+| **9** | **LKML `[PATCH 0/N]` Series** | *"Make clean, logical commits"* | Topological commit DAG; `git rebase --exec` passes on every commit | Prompt-only |
+| **10**| **Multi-Pass Compiler Diagnostics** | *"Review code carefully"* | Structured `error[SCAR-XX]` AST/lifetime/blast-radius passes | Prompt-only |
+| **11**| **Stream Demux (`stdout`/`stderr`)** | Mixed JSON data with chat commentary | FD 1 (raw payload) isolated from FD 2 (diagnostics) | Host |
+| **12**| **POSIX Signals (`SIGINT`/`SIGTERM`)** | Vague stop/cancel instructions | Explicit signal traps: `SIGINT` checkpoints state, `SIGTERM` rolls back | Host |
+| **13**| **Advisory File Locking (`flock`)** | Concurrent agent edit collisions | Atomic `.lock` acquisition eliminates subagent race conditions | Host |
+| **14**| **Fail-Fast Shell (`set -euo pipefail`)**| Silent command failure continuation | Zero-tolerance error bubbling halts script on first failure | Host |
+| **15**| **Copy-On-Write Scratch Worktrees** | In-place risky speculative edits | Ephemeral `git worktree` sandbox; fast-forward merges only if green | Host |
+| **16**| **Least Privilege (`chmod r--`)** | Conversational pleading not to touch files | Hard capability masking (read-only enforcement) | Host |
+| **17**| **Ring Buffer & FIFO (`logrotate`)** | Context window log flooding | Bounded token ceiling on terminal output (head 5 + tail 45 lines) | Host |
 
 ---
 
@@ -230,11 +230,38 @@ When ticket is merged and task is done:
 
 ---
 
-## Validating the Premise: Empirical A/B Evaluation
+## Evidence & Empirical Validation
 
-The numeric **friction score** emitted by `unix_primitives.py` is a static linting heuristic that measures token and pattern alignment with canonical Unix formalisms. It is **not** an empirical measurement of LLM capability or task performance.
+The static **friction score** emitted by `unix_primitives.py` is a linting heuristic measuring prompt adherence and pattern frequency against canonical Unix formalisms. It is **not** an empirical measurement of LLM capability or task performance.
 
-To empirically evaluate whether converting prompts to canonical Unix primitives improves reliability, test pass rates, or token efficiency on your own workloads, this repository includes an A/B evaluation harness in `eval/`:
+To empirically evaluate agent execution reliability, this repository includes an evaluation harness in `eval/` with a pre-registered methodology.
+
+### The Four Experimental Arms
+
+For each evaluation task, execution reliability is measured across 4 controlled arms:
+
+1. **`prose`**: Baseline unstructured natural-language instructions.
+2. **`bespoke`**: Invented domain-specific prompt language / checklist syntax.
+3. **`canonical`**: Canonical Unix and Computer Science formalisms.
+4. **`host`**: Host-enforced physical latches and OS machine gates (Level 2).
+
+### Pairwise Empirical Hypotheses
+
+| Comparison | Effect Isolated | Scientific Interpretation |
+|---|---|---|
+| **$\text{canonical} - \text{bespoke}$** | Familiarity & Pre-Training Gravity | Isolates whether using canonical Unix terms outperforms invented syntax due to 50 years of pre-training tokens in frontier model weights. |
+| **$\text{bespoke} - \text{prose}$** | Structural Rigor | Measures the reliability benefit of formal syntactic structure over ambiguous English prose. |
+| **$\text{host} - \text{canonical}$** | Level 2 vs Level 1 Enforcement | Measures the reliability delta between physical machine gates (filesystem latches, OS process bounds, POSIX file permissions) and prompt-only compliance. |
+
+### Statistical Protocol & Pre-Registration Gate
+
+* **Sample Size**: $N \ge 20$ iterations per (task, arm) cell.
+* **Proportion Uncertainty**: Wilson 95% binomial score confidence intervals:
+  $$\text{CI}_{95\%} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}} \quad (z = 1.95996)$$
+* **Significance Testing**: Two-sided Fisher's exact test on $2 \times 2$ contingency tables ($p < 0.05$).
+* **Pre-Registration Gate**: To prevent post-hoc prompt tweaking, `run_ab.py` verifies that `eval/PREREGISTRATION.md` exists and was registered prior to prompt evaluation runs (bypassed with `--no-prereg` in development).
+
+### Running Evaluations
 
 ```bash
 # Verify the test matrix:
@@ -242,10 +269,10 @@ python3 eval/run_ab.py --dry-run
 
 # Run A/B iterations with your agent CLI:
 export AGENT_CMD="my-agent --prompt {prompt_file} --dir {task_dir}"
-python3 eval/run_ab.py -n 5
+python3 eval/run_ab.py -n 20 --model gpt-4o --seed 42
 ```
 
-The harness runs tasks across prompt variants in isolated sandboxes, executes deterministic validation scripts (`check.sh`), and computes pass rates with a Wilson 95% binomial confidence interval. See [eval/README.md](eval/README.md) for full harness documentation.
+See [eval/README.md](eval/README.md) and [eval/PREREGISTRATION.md](eval/PREREGISTRATION.md) for full harness documentation and registered hypotheses.
 
 ---
 
