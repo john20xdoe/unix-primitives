@@ -70,6 +70,15 @@ export AGENT_CMD="my-agent-cli --prompt {prompt_file} --dir {task_dir}"
 python3 eval/run_ab.py -n 20 --model gpt-4o --seed 42
 ```
 
+#### Example: Antigravity
+
+Run evaluations using the `agy` CLI in non-interactive print mode:
+
+```bash
+export AGENT_CMD='bash -c '\''agy -p "$(<"$1")" --dangerously-skip-permissions'\'' _ {prompt_file}'
+python3 eval/run_ab.py -n 20 --model gpt-4o --seed 42
+```
+
 Available template variables in `AGENT_CMD`:
 * `{prompt_file}`: Path to the combined prompt (variant + task instructions).
 * `{task_dir}`: Path to the isolated sandbox directory for the run.

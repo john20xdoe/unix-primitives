@@ -272,6 +272,15 @@ export AGENT_CMD="my-agent --prompt {prompt_file} --dir {task_dir}"
 python3 eval/run_ab.py -n 20 --model gpt-4o --seed 42
 ```
 
+#### Example: Antigravity
+
+Run evaluations using the `agy` CLI in non-interactive print mode:
+
+```bash
+export AGENT_CMD='bash -c '\''agy -p "$(<"$1")" --dangerously-skip-permissions'\'' _ {prompt_file}'
+python3 eval/run_ab.py -n 20 --model gpt-4o --seed 42
+```
+
 See [eval/README.md](eval/README.md) and [eval/PREREGISTRATION.md](eval/PREREGISTRATION.md) for full harness documentation and registered hypotheses.
 
 ---
