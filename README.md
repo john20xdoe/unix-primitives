@@ -257,7 +257,7 @@ For each evaluation task, execution reliability is measured across 4 controlled 
 
 * **Sample Size**: $N \ge 20$ iterations per (task, arm) cell.
 * **Proportion Uncertainty**: Wilson 95% binomial score confidence intervals:
-  $$\text{CI}_{95\%} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}} \quad (z = 1.95996)$$
+  $$\text{CI}_{0.95} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}} \quad (z = 1.95996)$$
 * **Significance Testing**: Two-sided Fisher's exact test on $2 \times 2$ contingency tables ($p < 0.05$).
 * **Pre-Registration Gate**: To prevent post-hoc prompt tweaking, `run_ab.py` verifies that `eval/PREREGISTRATION.md` exists and was registered prior to prompt evaluation runs (bypassed with `--no-prereg` in development).
 

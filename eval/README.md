@@ -80,7 +80,7 @@ Available template variables in `AGENT_CMD`:
 
 The harness computes:
 1. **Wilson 95% Confidence Interval**:
-   $$\text{CI}_{95\%} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}}$$
+   $$\text{CI}_{0.95} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}}$$
    where $z = 1.95996$.
 2. **Two-Sided Fisher's Exact Test**:
    Exact hypergeometric probability on $2 \times 2$ contingency tables testing pairwise significance between arms ($p < 0.05$).
