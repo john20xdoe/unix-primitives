@@ -129,7 +129,7 @@ def main() -> None:
     parser.add_argument("--prompts-dir", default=str(Path(__file__).parent / "prompts"), help="Path to prompt arms directory")
     parser.add_argument("--results-dir", default=str(Path(__file__).parent / "results"), help="Path to results directory")
     parser.add_argument("-n", "--iterations", type=int, default=20, help="Number of iterations per (task, arm) cell (default: 20)")
-    parser.add_argument("--timeout", type=int, default=120, help="Per-run timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=180, help="Per-run timeout in seconds (default: 180)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducible execution ordering")
     parser.add_argument("--model", default="default", help="Model label identifier for JSONL logs")
     parser.add_argument("--no-prereg", action="store_true", help="Bypass pre-registration gate validation")
