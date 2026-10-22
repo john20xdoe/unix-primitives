@@ -15,7 +15,7 @@
 | 9 | *"Break your work into clean, logical commits"* | **LKML `[PATCH 0/N]` Series** | Topological commit DAG, `git rebase --exec "make test"` invariant | Prompt-only |
 | 10| Polite, superficial review (*"Looks good to me!"*) | **Multi-Pass Compiler Diagnostics** | `error[SCAR-XX]: BLKR/WARN/NIT` with source locations & AST passes | Prompt-only |
 | 11| Mixed data payload & chat comments | **Stream Demux (`stdout` vs `stderr`)** | FD 1 (payload) vs FD 2 (diagnostics), exit code | Host |
-| 12| Unstructured cancel/stop handling | **POSIX Signals (`SIGINT`, `SIGTERM`, `SIGHUP`)** | Traps for state checkpointing and clean rollback | Host |
+| 12| Unstructured cancel/stop handling | **POSIX Signals (`SIGINT`, `SIGTERM`, `SIGHUP`)** | Traps for state checkpointing and clean rollback | Prompt-only |
 | 13| Subagent concurrent write collisions | **Advisory File Locking (`flock(2)` / `.lock`)** | Atomic lock acquisition & release on shared files | Host |
 | 14| Permissive silent command failures | **Fail-Fast Shell (`set -euo pipefail`)** | Zero-tolerance error bubbling | Host |
 | 15| In-place risky speculative trial edits | **Copy-On-Write Scratch Worktrees** | Ephemeral `git worktree` scratch sandboxing | Host |
@@ -36,7 +36,7 @@
 * **Primitives**: SysV `/etc/init.d` Runlevels (`SYSV_INITD`), POSIX Signals (`POSIX_SIGNALS`)
 * **Scope**: Progress tracking, mutable todos, amnesia prevention, cancellation.
 * **Invariant**: Externalized disk latches (`00_` to `99_`) with RFC 822 headers survive context compaction. Traps preserve rollback state.
-* **Enforcement**: Host (disk latches + signal traps).
+* **Enforcement**: Host for .state/ disk latches; Prompt-only for POSIX signal metaphors.
 
 ### [3/7] Process Isolation & Concurrency
 * **Primitives**: Unix Process Control (`PROCESS_ISOLATION`), Advisory File Locking (`FILE_LOCKING`), Least Privilege (`LEAST_PRIVILEGE`)

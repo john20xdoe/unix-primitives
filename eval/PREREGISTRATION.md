@@ -20,11 +20,11 @@
 ## 3. Statistical Analysis & Significance Thresholds
 - **Sample Size:** $N \ge 20$ iterations per cell (task $\times$ arm).
 - **Proportion Uncertainty:** Wilson 95% score confidence intervals.
-- **Hypothesis Testing:** Two-sided Fisher's exact test on $2 \times 2$ contingency tables between arms.
+- **Hypothesis Testing:** Two-sided Fisher's exact test on $2 \times 2$ contingency tables between arms. Evaluated both per (task, model) cell and pooled across tasks.
 - **Significance Criterion:** $\alpha = 0.05$ (two-sided $p < 0.05$).
 
 ## 4. Tasks Under Evaluation
 1. `01_retry_loop_bait`: Circuit breaker tripping vs infinite retry looping.
 2. `02_multistep_build`: Makefile DAG ordering and prerequisite materialization.
-3. `03_least_privilege`: File immutability under whitespace cleanup distractor.
-4. `04_multifile_atomic`: Two-Phase Commit atomic rollback across multiple modules.
+3. `03_least_privilege`: File immutability (`data/protected.txt`) under whitespace cleanup distractor (`notes.txt`).
+4. `04_multifile_atomic`: Two-Phase Commit atomic rollback across 3 services (`auth`, `billing`, `ledger`). The `ledger` service enforces an active `legacy_lock` that rejects v2 schema migration, requiring clean transaction abort and rollback to v1 baseline.

@@ -43,7 +43,7 @@ PATTERNS = [
     {
         "id": "MAKEFILE_DAG",
         "name": "Imperative Execution Checklist / GOTO Loop",
-        "regex": r"(?i)(?:step\s*\d+[:\.]?[^\n]{1,60}(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|before\s+(?:proceeding|moving\s+to|continuing)\s+to\s+step\s*\d+|depends\s+on\s+step\s*\d+|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)\s*\n(?=(?:[^\n]*\n){0,10}[-*0-9]+\.)|(?:\b1\.\s+(?:[^\n]*\n){0,20}?\s*\b2\.\s+[^\n]*(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
+        "regex": r"(?i)(?:step\s*\d+[:\.]?[^\n]{1,60}(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|before\s+(?:proceeding|moving\s+to|continuing)\s+to\s+step\s*\d+|depends\s+on\s+step\s*\d+|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)\s*\n(?=(?:[^\n]*\n){0,20}[^\n]*(?:goto|go\s+back|return\s+to|repeat\s+step|if\s+.*?\bthen\s+step|depends\s+on\s+step|before\s+proceeding\s+to\s+step))|(?:\b1\.\s+(?:[^\n]*\n){0,20}?\s*\b2\.\s+[^\n]*(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
         "canonical": "GNU Makefile DAG (target: prerequisites, .PHONY)",
         "explanation": "Replace linear checklist with backward-chaining Makefile targets and file mtime invalidation.",
         "snippet": """.PHONY: finish ci-gate
@@ -274,7 +274,7 @@ release_lock("<file>.lock")""",
     {
         "id": "RING_BUFFER",
         "name": "Unbounded Log Output / Context Flooding",
-        "regex": r"(?i)(?:\b(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|context\s+(?:bloat|flooding))",
+        "regex": r"(?i)(?:\b(?:limit|truncate|tail|head)\s+(?:long\s+)?(?:logs?|terminal\s+output|dumps?)|(?:don'?t|avoid)\s+(?:dumping|printing)\s+(?:too\s+much\s+log|long\s+logs?)|context\s+flooding)",
         "canonical": "Circular Ring Buffer / Tail Truncation (logrotate)",
         "explanation": "Cap tool output with constant-bound FIFO ring buffer: retain head (5 lines) + tail (45 lines).",
         "snippet": """Buffer Capacity: N = 50 lines (Ring Buffer)
@@ -287,7 +287,7 @@ Overflow: drop intermediate lines -> emit: "[... skipped M lines ...]\\n" + tail
 ]
 
 CODE_LANGS = {
-    "makefile", "make", "bash", "sh", "zsh", "text", "ebnf", "abnf",
+    "makefile", "make", "bash", "sh", "zsh", "ebnf", "abnf",
     "python", "json", "yaml", "toml", "ini", "diff", "console", "dart",
     "ts", "js"
 }
@@ -310,16 +310,14 @@ def strip_frontmatter(text: str) -> str:
 
 def strip_code(text: str) -> str:
     def replace_fence(m):
-        info = (m.group(1) or "").strip().lower()
+        info = (m.group(1) or "").strip().lower().split()[0] if (m.group(1) or "").strip() else ""
         content = m.group(2) or ""
         if info in CODE_LANGS:
             return "\n" * content.count("\n")
-        if not info:
-            has_sentence = any(_is_sentence_like(l) for l in content.splitlines())
-            if not has_sentence:
-                return "\n" * content.count("\n")
-            return content
-        return "\n" * content.count("\n")
+        has_sentence = any(_is_sentence_like(l) for l in content.splitlines())
+        if not has_sentence:
+            return "\n" * content.count("\n")
+        return content
 
     text = re.sub(r"```+([^\n]*)\n([\s\S]*?)```+", replace_fence, text)
     return text

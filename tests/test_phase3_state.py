@@ -72,6 +72,8 @@ def test_verify_missing_impl_fails(tmp_ws, sm):
 def test_verify_runs_command_and_fails_on_nonzero(tmp_ws, sm):
     # Verify with 'false' command fails
     sm.init_workspace(str(tmp_ws), "TICKET-01", "Verify test", verify_cmd="false", force=True)
+    subprocess.run(["git", "add", ".unix-primitives"], cwd=str(tmp_ws), check=True)
+    subprocess.run(["git", "commit", "-m", "add config"], cwd=str(tmp_ws), check=True)
     sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
 
     with pytest.raises(SystemExit) as exc:
@@ -80,6 +82,8 @@ def test_verify_runs_command_and_fails_on_nonzero(tmp_ws, sm):
 
     # Verify with 'true' command passes
     sm.init_workspace(str(tmp_ws), "TICKET-02", "Verify pass test", verify_cmd="true", force=True)
+    subprocess.run(["git", "add", ".unix-primitives"], cwd=str(tmp_ws), check=True)
+    subprocess.run(["git", "commit", "-m", "add config 2"], cwd=str(tmp_ws), check=True)
     sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
     res = sm.verify_gate(str(tmp_ws))
     assert res is True or res is None
@@ -89,6 +93,8 @@ def test_makefile_ci_gate_from_any_cwd(tmp_ws, sm):
     if not shutil.which("make"):
         pytest.skip("make command not found")
     sm.init_workspace(str(tmp_ws), "TICKET-01", "Makefile cwd test", verify_cmd="true", force=True)
+    subprocess.run(["git", "add", ".unix-primitives"], cwd=str(tmp_ws), check=True)
+    subprocess.run(["git", "commit", "-m", "add config"], cwd=str(tmp_ws), check=True)
     sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
 
     # Run from root with -f .state/Makefile
@@ -98,6 +104,7 @@ def test_makefile_ci_gate_from_any_cwd(tmp_ws, sm):
     # Run from .state with -C .state
     r2 = subprocess.run(["make", "-C", ".state", "ci-gate"], cwd=str(tmp_ws), capture_output=True, text=True)
     assert r2.returncode == 0, f"make -C failed: {r2.stderr}"
+
 
 
 def test_gitignore_ignores_all_state(tmp_ws, sm):

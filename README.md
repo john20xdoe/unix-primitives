@@ -7,7 +7,7 @@
 > [!IMPORTANT]
 > **Platform Compatibility**: The packaged skills (`/unix-*` slash commands) and installer (`install.sh`) currently target the **Google Antigravity / Gemini CLI** agent environment (`~/.gemini/config/skills/`).
 > 
-> *Model Agnosticism*: While the skill bundle packaging targets Antigravity, the core Python engines (`state_manager.py`, `unix_primitives.py`), physical `.state/` disk runlevels, and the 17 Unix/CS formalisms are universal and function across any frontier model or harness (Gemini, Claude, OpenAI, Cursor).
+> *Model Agnosticism*: The Python engines (`state_manager.py`, `unix_primitives.py`) and `.state/` disk latches run on any OS harness. Prompt-level behavioral gains reported in prior art were benchmarked on Gemini models; cross-model replication on Claude, GPT, and open weights remains an open evaluation target (see `eval/`).
 >
 
 > [!NOTE]
@@ -28,13 +28,13 @@ Special credit to 50 years of Unix and computer science pioneers—Stuart Feldma
 
 ---
 
-## The Core Problem: The Zero-Frequency Interpreter Trap
+## Theoretical Premise: Pre-Training Weight Gravity (Hypothesis)
 
-When prompt engineers invent custom numbered checklists or pseudo-code tags (`[CRITICAL_GATE_4]`, `[IF_TEST_FAILS_GOTO_STEP_2]`), their frequency in frontier LLM pre-training corpora is **approximately zero**. 
+Schwartz hypothesizes that when prompt engineers invent custom numbered checklists or pseudo-code tags (`[CRITICAL_GATE_4]`, `[IF_TEST_FAILS_GOTO_STEP_2]`), their frequency in frontier LLM pre-training corpora is **approximately zero** (`Freq ≈ 0`).
 
-The model cannot route execution through its deep feed-forward weight circuits; instead, it burns fragile working-memory attention heads simulating an interpreter at runtime. As the context window expands with diffs and compiler output, attention dilutes ($O(1/L)$), causing sequential amnesia, skipped gates, and infinite apology loops.
+Under this hypothesis, the model cannot route execution through its deep feed-forward weight circuits; instead, it burns fragile working-memory attention heads simulating an interpreter at runtime. As the context window expands with diffs and compiler output, attention dilutes ($O(1/L)$), causing sequential amnesia, skipped gates, and infinite apology loops.
 
-In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC 5234 EBNF grammars, Design-by-Contract, Two-Phase Commit, and Circuit Breakers** appear millions of times in pre-training data. Calling them acts as **static symbol linkage** into crystallized weights.
+In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC 5234 EBNF grammars, Design-by-Contract, Two-Phase Commit, and Circuit Breakers** appear millions of times in pre-training data (`Freq > 1,000,000`). Calling them acts as **static symbol linkage** into crystallized weights.
 
 ---
 
@@ -53,7 +53,7 @@ In contrast, **GNU Makefiles, SysV `/etc/init.d` runlevels, RFC 822 headers, RFC
 | **9** | **LKML `[PATCH 0/N]` Series** | *"Make clean, logical commits"* | Topological commit DAG; `git rebase --exec` passes on every commit | Prompt-only |
 | **10**| **Multi-Pass Compiler Diagnostics** | *"Review code carefully"* | Structured `error[SCAR-XX]` AST/lifetime/blast-radius passes | Prompt-only |
 | **11**| **Stream Demux (`stdout`/`stderr`)** | Mixed JSON data with chat commentary | FD 1 (raw payload) isolated from FD 2 (diagnostics) | Host |
-| **12**| **POSIX Signals (`SIGINT`/`SIGTERM`)** | Vague stop/cancel instructions | Explicit signal traps: `SIGINT` checkpoints state, `SIGTERM` rolls back | Host |
+| **12**| **POSIX Signals (`SIGINT`/`SIGTERM`)** | Vague stop/cancel instructions | Explicit signal traps: `SIGINT` checkpoints state, `SIGTERM` rolls back | Prompt-only |
 | **13**| **Advisory File Locking (`flock`)** | Concurrent agent edit collisions | Atomic `.lock` acquisition eliminates subagent race conditions | Host |
 | **14**| **Fail-Fast Shell (`set -euo pipefail`)**| Silent command failure continuation | Zero-tolerance error bubbling halts script on first failure | Host |
 | **15**| **Copy-On-Write Scratch Worktrees** | In-place risky speculative edits | Ephemeral `git worktree` sandbox; fast-forward merges only if green | Host |
@@ -96,8 +96,8 @@ To survive context compactions and memory truncation, states are grounded physic
   99_next_action.md    # Volatile pointer (overwritten in-place, <200B)
 ```
 
-### Anti-Bloat & Anti-Staleness Guarantees
-1. **Bounded Storage**: Strictly 6 discrete slots (`00_` $\rightarrow$ `99_`). Directory never exceeds 6 active files ($<50\text{KB}$).
+### Bounded State & Staleness Design
+1. **Bounded Storage**: 5 active transient slots + 00_governance.md; completed ticket logs in .state/archive/ rotate at ARCHIVE_KEEP=20. Directory never exceeds active bounded slots (<50KB).
 2. **In-Place Overwrites**: `99_next_action.md` is overwritten in place every turn, never appended.
 3. **Repository Cleanliness**: `.state/.gitignore` isolates transient latches from git staging and PR diffs.
 4. **Archive & Prune**: `/unix-clean` rolls finished tickets into `.state/archive/<ticket>.log` and purges active slots.
@@ -147,7 +147,7 @@ Step-by-step walkthrough for first-time users:
 # or explicitly with subcommand:
 /unix-primitives scan .agents/
 ```
-*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. Directory and multi-file audits leverage an isolated read-only child subagent [Unix Primitive #3: Process Control] fed with the target telemetry and the complete 7 OS Subsystems / 17 Primitives classification contract to deliver a comprehensive **Canonical Architecture Audit** on turn 1 without context bloat or guesswork).*
+*(When invoked without a command or target, `/unix-primitives` automatically defaults to `scan`. Directory and multi-file audits leverage an isolated read-only child subagent [Unix Primitive #3: Process Control] fed with the target telemetry and the complete 7 OS Subsystems / 17 Primitives classification contract to deliver a comprehensive **Canonical Architecture Audit** on turn 1 without flooding main-thread context).*
 
 #### Refactor Prompts Non-Destructively:
 ```text
@@ -219,20 +219,27 @@ Prevent pushing unverified milestones upstream without interrupting local commit
 
 ---
 
-### Step 6: Complete & Reset (Zero Bloat)
+### Step 6: Complete & Reset
 When ticket is merged and task is done:
 
 ```text
 /unix-clean
 ```
 * Archives completed session to flat `.state/archive/PROJ-101.log`.
-* Purges active slots back to clean slate (bounded storage without bloat).
+* Purges active slots back to clean slate (bounded storage).
 
 ---
 
 ## Evidence & Empirical Validation
 
 The static **friction score** emitted by `unix_primitives.py` is a linting heuristic measuring prompt adherence and pattern frequency against canonical Unix formalisms. It is **not** an empirical measurement of LLM capability or task performance.
+
+### Current Evidence Status
+
+* **Reported (Author Benchmark):** Schwartz's 1,680-trial benchmark across 4 Gemini models (`gemini-2.5-pro`, `2.5-flash`, `2.5-flash-lite`, `2.0-flash`), self-run. Shows large pass-rate gains for Circuit Breaker (`0.8% -> 98.3%`), SysV `init.d` (`0.8% -> 60.0%`), 2PC (`45.8% -> 93.3%`), `git bisect` (`19.2% -> 81.7%`), and DbC (`27.2% -> 62.7%`). Note: Suite 1 (`Makefile` DAG) showed `72.5%` vs `72.5%` overall, with a statistically significant gain only on `gemini-2.5-flash-lite` (`+16.7 pp`).
+* **Independent Runs:** One community open-weights experiment (`slabb` / NoireBox on `qwen2.5-coder:3b`, `qwen2.5:0.5b`, `llama-guard3:1b`) tested canary string preservation across turns, not primitive-vs-prose task reliability.
+* **Open Confound (Structure vs. Familiarity):** Published trials did not include a control arm using an invented notation with identical graph topology. Whether gains stem from structural explicitness or token frequency in pre-training remains open—which is why `eval/` includes the `bespoke` control arm.
+* **Design Consequence (Level 2 > Level 1):** Both the article and independent reviewers note that host-enforced mechanisms (Level 2: real `make`, `.state/` disk latches, git hooks, permissions) outperform in-context prompt wording (Level 1). Prefer host enforcement wherever possible.
 
 To empirically evaluate agent execution reliability, this repository includes an evaluation harness in `eval/` with a pre-registered methodology.
 

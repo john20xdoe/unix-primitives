@@ -11,11 +11,12 @@ Run the test suite. Note: be brief."""
 
 
 def test_classifier_canonical_doc_is_reference(up):
-    findings = up.scan_text(REMEDY_DOC)
+    doc = "We use git bisect for debugging and follow least privilege. Logs use a ring buffer; context bloat avoided."
+    findings = up.scan_text(doc)
     assert findings == []
-    suit = up.classify_file_suitability(REMEDY_DOC, "test.md", findings)
+    suit = up.classify_file_suitability(doc, "doc.md", findings)
     assert suit["is_reference"] is True
-    assert len(suit["detected_primitives"]) == 0
+    assert suit["detected_primitives"] == {}
 
 
 def test_keywords_exclude_remedy_terms(up):
@@ -25,6 +26,7 @@ def test_keywords_exclude_remedy_terms(up):
         for p in up.PATTERNS:
             for kw in p.get("keywords", []):
                 assert term_lower not in kw.lower(), f"Pattern {p['id']} keyword '{kw}' contains remedy term '{term}'"
+        assert up.scan_text(f"We apply {term} in this repository.") == []
 
 
 def test_backtick_wrapped_sentence_still_flagged(up):
@@ -50,6 +52,21 @@ If the test suite fails, retry until it passes. This is required for verificatio
     findings = up.scan_text(text)
     found_ids = [f["pattern"]["id"] for f in findings]
     assert "CIRCUIT_BREAKER" in found_ids
+
+
+def test_fenced_non_code_info_string_scanned(up):
+    t_md = "```markdown\nIf the test suite fails, retry until it passes. This is required for verification.\n```"
+    t_txt = "```text\nIf the test suite fails, retry until it passes. This is required for verification.\n```"
+    f_md = [f["pattern"]["id"] for f in up.scan_text(t_md)]
+    f_txt = [f["pattern"]["id"] for f in up.scan_text(t_txt)]
+    assert "CIRCUIT_BREAKER" in f_md
+    assert "CIRCUIT_BREAKER" in f_txt
+
+
+def test_workflow_heading_plain_list_not_flagged(up):
+    text = "## Workflow\n\n1. Open a pull request.\n2. Request peer review.\n3. Merge when approved.\n"
+    assert up.scan_text(text) == []
+
 
 
 def test_delta_reports_backtick_gaming(tmp_path, up):

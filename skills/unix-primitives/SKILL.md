@@ -15,7 +15,7 @@ description: >
 
 ## Purpose
 
-Maps fragile natural-language prompts, numbered checklists, and zero-frequency prompt DSLs (`Freq ≈ 0`) to canonical Unix and computer science formalisms (`Freq > 1,000,000`).
+Applies Schwartz's hypothesis: replacing zero-frequency prompt DSLs (`Freq ≈ 0`) with canonical Unix formalisms (`Freq > 1,000,000`) leverages pre-trained weights.
 
 The CLI scripts (`unix_primitives.py`, `state_manager.py`) scan files, calculate friction scores, manage `.state/` disk latches, and prepare output target paths or backups. The LLM performs the semantic prompt refactoring and rewrites.
 

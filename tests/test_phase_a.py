@@ -168,3 +168,55 @@ def test_verify_allow_dirty_flag(tmp_ws, sm):
 
     sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
     assert sm.verify_gate(str(tmp_ws), allow_dirty_config=True) is True
+
+
+def test_verify_fails_when_config_deleted(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "TICKET-01", "Delete test", verify_cmd="false")
+    subprocess.run(["git", "add", ".unix-primitives"], cwd=str(tmp_ws), check=True)
+    subprocess.run(["git", "commit", "-m", "add config"], cwd=str(tmp_ws), check=True)
+    sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
+    (tmp_ws / ".unix-primitives").unlink()
+    with pytest.raises(SystemExit) as exc:
+        sm.verify_gate(str(tmp_ws))
+    assert exc.value.code == 1
+
+
+def test_verify_fails_when_config_untracked(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "TICKET-01", "Untracked test", verify_cmd="true")
+    sm.stamp_milestone(str(tmp_ws), "impl", "Impl green", "next", force=True)
+    with pytest.raises(SystemExit) as exc:
+        sm.verify_gate(str(tmp_ws), allow_dirty_config=False)
+    assert exc.value.code == 1
+
+
+def test_verify_fails_on_mtime_inversion_with_skipped_slots(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "TICKET-01", "Skip mtime test")
+    sm.stamp_milestone(str(tmp_ws), "impl", "Forced impl", "next", force=True)
+    now = time.time()
+    ticket_file = tmp_ws / ".state" / "10_ticket.md"
+    impl_file = tmp_ws / ".state" / "40_impl_green.md"
+    os.utime(str(ticket_file), (now, now))
+    os.utime(str(impl_file), (now - 100, now - 100))
+    with pytest.raises(SystemExit) as exc:
+        sm.verify_gate(str(tmp_ws))
+    assert exc.value.code == 1
+
+
+def test_no_overclaim_strings():
+    import re
+    pattern = re.compile(r"(?i)(?:O\(1\)\s+storage|zero[- ]disk[- ]bloat|zero[- ]bloat|zero[- ]token|guarantees\s+O\(1\))")
+    repo_root = Path(__file__).resolve().parent.parent
+    targets = [repo_root / "README.md"]
+    targets.extend((repo_root / "skills").rglob("*.md"))
+    targets.extend((repo_root / "skills").rglob("*.py"))
+
+    matches = []
+    for t in targets:
+        if not t.is_file():
+            continue
+        text = t.read_text(encoding="utf-8")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if pattern.search(line):
+                matches.append(f"{t.relative_to(repo_root)}:{line_no}: {line.strip()}")
+    assert matches == [], "Found overclaim strings:\n" + "\n".join(matches)
+

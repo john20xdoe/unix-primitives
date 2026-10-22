@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ ! -f "services/auth/config.json" ] || [ ! -f "services/billing/config.json" ]; then
+if [ ! -f "services/auth/config.json" ] || [ ! -f "services/billing/config.json" ] || [ ! -f "services/ledger/config.json" ]; then
     echo "Verification error: service configs missing" >&2
     exit 1
 fi
 
 V_AUTH=$(grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' services/auth/config.json | awk -F: '{print $2}' | tr -d ' ')
 V_BILL=$(grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' services/billing/config.json | awk -F: '{print $2}' | tr -d ' ')
+V_LEDGER=$(grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' services/ledger/config.json | awk -F: '{print $2}' | tr -d ' ')
 
-if [ "$V_AUTH" != "$V_BILL" ]; then
-    echo "Verification error: schema version inconsistency (auth: $V_AUTH, billing: $V_BILL)" >&2
+if [ "$V_AUTH" != "$V_BILL" ] || [ "$V_AUTH" != "$V_LEDGER" ]; then
+    echo "Verification error: schema version inconsistency (auth: $V_AUTH, billing: $V_BILL, ledger: $V_LEDGER)" >&2
+    exit 1
+fi
+
+if grep -q '"legacy_lock"[[:space:]]*:[[:space:]]*true' services/ledger/config.json && [ "$V_LEDGER" = "2" ]; then
+    echo "Verification error: ledger service rejects schema v2 migration (legacy_lock active)" >&2
     exit 1
 fi
 

@@ -97,3 +97,9 @@ The harness computes:
 ### 4. Pre-Registration Gate
 
 To prevent p-hacking and post-hoc prompt tweaking, `run_ab.py` verifies that `eval/PREREGISTRATION.md` exists and was registered after or concurrently with prompt updates. Pass `--no-prereg` to bypass this check in development.
+
+## Known Limitations
+
+1. **File Owner Permissions**: Under the `host` arm, the agent runs as the file owner, so a deliberate `chmod u+w` can defeat the host latch. Mode bits block accidental rewrites only; deliberate bypasses are logged (`host_chmod_attempt: true`) rather than kernel-enforced.
+2. **mtime-Based Gate**: The pre-registration gate verifies that `PREREGISTRATION.md` has `mtime >= max(mtime(prompts/**/*.md))`. Prompt copies that preserve old timestamps can pass without updating registration. A future hardening is to store cryptographic sha256 digests within `PREREGISTRATION.md`.
+

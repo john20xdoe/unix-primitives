@@ -427,14 +427,16 @@ def verify_gate(workspace: str, allow_dirty_config: bool = False) -> bool:
         print(f"Error: Implementation milestone not verified ({SLOTS[40]} missing)", file=sys.stderr)
         sys.exit(1)
 
-    # Check strict mtime order: mtime(10) <= mtime(20) <= mtime(30) <= mtime(40)
-    for earlier_slot, later_slot in [(10, 20), (20, 30), (30, 40)]:
-        p_earlier = os.path.join(state_dir, SLOTS[earlier_slot])
-        p_later = os.path.join(state_dir, SLOTS[later_slot])
-        if os.path.exists(p_earlier) and os.path.exists(p_later):
-            if os.path.getmtime(p_later) < os.path.getmtime(p_earlier):
-                print(f"Error: {SLOTS[later_slot]} older than {SLOTS[earlier_slot]}; re-stamp required", file=sys.stderr)
-                sys.exit(1)
+    # Check strict mtime order across all existing slots
+    existing_slots = [
+        (s, os.path.join(state_dir, SLOTS[s]))
+        for s in (10, 20, 30, 40)
+        if os.path.exists(os.path.join(state_dir, SLOTS[s]))
+    ]
+    for (s_early, p_early), (s_late, p_late) in zip(existing_slots, existing_slots[1:]):
+        if os.path.getmtime(p_late) < os.path.getmtime(p_early):
+            print(f"Error: {SLOTS[s_late]} older than {SLOTS[s_early]}; re-stamp required", file=sys.stderr)
+            sys.exit(1)
 
     # Check for deprecated ticket header
     ticket_file = os.path.join(state_dir, SLOTS[10])
@@ -445,24 +447,34 @@ def verify_gate(workspace: str, allow_dirty_config: bool = False) -> bool:
 
     repo_cfg_path = os.path.join(os.path.abspath(workspace), ".unix-primitives")
     verify_cmd = ""
-    if os.path.exists(repo_cfg_path):
-        if not allow_dirty_config:
-            try:
-                res = subprocess.run(
-                    ["git", "status", "--porcelain", ".unix-primitives"],
+
+    if not allow_dirty_config:
+        try:
+            res = subprocess.run(
+                ["git", "status", "--porcelain", "--", ".unix-primitives"],
+                cwd=os.path.abspath(workspace),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                print("Warning: verify command modified, untracked, or deleted but uncommitted", file=sys.stderr)
+                sys.exit(1)
+            if os.path.exists(repo_cfg_path):
+                res_ls = subprocess.run(
+                    ["git", "ls-files", "--error-unmatch", ".unix-primitives"],
                     cwd=os.path.abspath(workspace),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
                 )
-                status_lines = res.stdout.splitlines()
-                for s_line in status_lines:
-                    if s_line.startswith((" M", "M ", "MM")):
-                        print("Warning: verify command modified but uncommitted", file=sys.stderr)
-                        sys.exit(1)
-            except Exception:
-                pass
+                if res_ls.returncode != 0:
+                    print("Warning: verify command modified, untracked, or deleted but uncommitted", file=sys.stderr)
+                    sys.exit(1)
+        except Exception:
+            pass
 
+    if os.path.exists(repo_cfg_path):
         cfg_headers, _ = read_headers(repo_cfg_path)
         verify_cmd = cfg_headers.get("Verify-Command", "")
 
