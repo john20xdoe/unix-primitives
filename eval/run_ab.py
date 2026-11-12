@@ -69,19 +69,28 @@ def fisher_exact(a: int, b: int, c: int, d: int) -> float:
 
 def check_preregistration_gate(prompts_dir: Path, prereg_file: Path) -> bool:
     """
-    Check that pre-registration file exists, is non-empty, and has mtime
-    greater than or equal to all prompt files in prompts_dir.
+    Check that pre-registration file exists, is non-empty, prereg and prompts
+    have no uncommitted changes, and prereg's last commit is not older than the
+    last commit touching prompts_dir. Uses git commit times, not file mtimes,
+    because git checkout does not preserve mtimes. Fails closed outside git.
     """
-    if not prereg_file.exists() or prereg_file.stat().st_size == 0:
+    if not prereg_file.exists() or prereg_file.stat().st_size == 0 or not prompts_dir.is_dir():
         return False
 
-    prereg_mtime = prereg_file.stat().st_mtime
-    if prompts_dir.exists():
-        for p in prompts_dir.rglob("*.md"):
-            if p.is_file() and p.stat().st_mtime > prereg_mtime:
-                return False
+    def git(*args: str) -> Optional[str]:
+        try:
+            res = subprocess.run(["git", *args], cwd=str(prompts_dir), capture_output=True, text=True)
+        except OSError:
+            return None
+        return res.stdout.strip() if res.returncode == 0 else None
 
-    return True
+    if git("status", "--porcelain", "--", ".", str(prereg_file)) != "":
+        return False
+    prereg_ct = git("log", "-1", "--format=%ct", "--", str(prereg_file))
+    prompts_ct = git("log", "-1", "--format=%ct", "--", ".")
+    if not prereg_ct or not prompts_ct:
+        return False
+    return int(prereg_ct) >= int(prompts_ct)
 
 
 def discover_tasks(tasks_dir: Path) -> List[Path]:

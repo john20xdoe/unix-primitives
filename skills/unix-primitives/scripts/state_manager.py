@@ -711,7 +711,7 @@ def main():
     p_init.add_argument("--workspace", default=".", help="Workspace path (default: current dir)")
     p_init.add_argument("--ticket", default="TICKET-01", help="Ticket ID")
     p_init.add_argument("--title", default="Task Execution", help="Ticket title/description")
-    p_init.add_argument("--verify", dest="verify_cmd", default="", help="Verification command executed at ci-gate")
+    p_init.add_argument("--verify-cmd", "--verify", dest="verify_cmd", default="", help="Verification command executed at ci-gate")
     p_init.add_argument("--track-governance", action="store_true", help="Allow git tracking of 00_governance.md")
     p_init.add_argument("--force", action="store_true", help="Force initialization even if active ticket exists")
 

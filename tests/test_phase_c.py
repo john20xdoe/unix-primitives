@@ -413,24 +413,58 @@ def test_seed_reproducible_order():
 
 
 def test_prereg_gate():
-    """Verify pre-registration gate rejects execution if PREREGISTRATION.md is missing or stale."""
+    """Verify pre-registration gate uses git commit order and survives a fresh clone."""
     with tempfile.TemporaryDirectory() as tmp:
-        prompts_dir = Path(tmp) / "prompts"
+        repo = Path(tmp) / "repo"
+        prompts_dir = repo / "prompts"
         prompts_dir.mkdir(parents=True)
-        (prompts_dir / "p1.md").write_text("test", encoding="utf-8")
-        prereg_file = Path(tmp) / "PREREGISTRATION.md"
+        prereg_file = repo / "PREREGISTRATION.md"
+
+        def git(*args, date=None):
+            env = dict(os.environ)
+            if date:
+                env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = date
+            subprocess.run(["git", *args], cwd=str(repo), env=env, check=True, capture_output=True)
+
+        def gate(root=repo):
+            return run_ab.check_preregistration_gate(root / "prompts", root / "PREREGISTRATION.md")
+
+        git("init", "-q")
+        git("config", "user.name", "Test User")
+        git("config", "user.email", "test@example.com")
+
+        # Non-git prompts dir -> gate fails closed
+        plain = Path(tmp) / "plain"
+        (plain / "prompts").mkdir(parents=True)
+        (plain / "PREREGISTRATION.md").write_text("Hypothesis registered", encoding="utf-8")
+        assert not gate(plain)
 
         # Missing prereg file -> gate fails
-        assert not run_ab.check_preregistration_gate(prompts_dir, prereg_file)
+        (prompts_dir / "p1.md").write_text("test", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-qm", "prompt", date="2026-01-01T00:00:00Z")
+        assert not gate()
 
-        # Stale prereg file (older than prompt) -> gate fails
+        # Uncommitted prereg -> gate fails
         prereg_file.write_text("Hypothesis registered", encoding="utf-8")
-        past_time = time.time() - 100
-        os.utime(prereg_file, (past_time, past_time))
-        assert not run_ab.check_preregistration_gate(prompts_dir, prereg_file)
+        assert not gate()
 
-        # Fresh prereg file -> gate passes
-        fresh_time = time.time() + 10
-        os.utime(prereg_file, (fresh_time, fresh_time))
-        assert run_ab.check_preregistration_gate(prompts_dir, prereg_file)
+        # Prereg committed after prompts -> gate passes
+        git("add", "-A")
+        git("commit", "-qm", "prereg", date="2026-01-02T00:00:00Z")
+        assert gate()
+
+        # Fresh clone resets mtimes; gate must still pass
+        clone = Path(tmp) / "clone"
+        subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True, capture_output=True)
+        assert gate(clone)
+
+        # Uncommitted prompt edit -> gate fails
+        (prompts_dir / "p1.md").write_text("tweaked", encoding="utf-8")
+        assert not gate()
+
+        # Prompt edit committed after prereg -> gate fails
+        git("add", "-A")
+        git("commit", "-qm", "tweak", date="2026-01-03T00:00:00Z")
+        assert not gate()
 

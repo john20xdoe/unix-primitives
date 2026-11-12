@@ -101,5 +101,5 @@ To prevent p-hacking and post-hoc prompt tweaking, `run_ab.py` verifies that `ev
 ## Known Limitations
 
 1. **File Owner Permissions**: Under the `host` arm, the agent runs as the file owner, so a deliberate `chmod u+w` can defeat the host latch. Mode bits block accidental rewrites only; deliberate bypasses are logged (`host_chmod_attempt: true`) rather than kernel-enforced.
-2. **mtime-Based Gate**: The pre-registration gate verifies that `PREREGISTRATION.md` has `mtime >= max(mtime(prompts/**/*.md))`. Prompt copies that preserve old timestamps can pass without updating registration. A future hardening is to store cryptographic sha256 digests within `PREREGISTRATION.md`.
+2. **Commit-Time Gate**: The pre-registration gate requires `PREREGISTRATION.md` and `prompts/` to be committed and clean, with the last commit touching `PREREGISTRATION.md` no older than the last commit touching `prompts/` (git committer time). Rewritten history or a forged `GIT_COMMITTER_DATE` can pass it. A future hardening is to store cryptographic sha256 digests within `PREREGISTRATION.md`.
 
