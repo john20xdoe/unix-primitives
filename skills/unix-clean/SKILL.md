@@ -23,7 +23,8 @@ Check `.state/10_ticket.md`:
 ### 2. Archive Active Latches
 If `.state/10_ticket.md` exists:
 * Read contents of each active latch on disk (`10_ticket.md`, `20_plan.md`, `30_tdd_red.md`, `40_impl_green.md`, `99_next_action.md`).
-* Append to `.state/archive/<ticket-id>.log`:
+* `<safe-id>` = ticket ID with every char outside `[A-Za-z0-9._-]` replaced by `_`, leading dots stripped (empty -> `UNKNOWN`). Never use raw ticket ID in a path.
+* Append to `.state/archive/<safe-id>.log`:
   ```
   === ARCHIVED <ISO-timestamp> ===
   === <filename> ===

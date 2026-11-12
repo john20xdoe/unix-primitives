@@ -45,7 +45,8 @@ Timestamp: <ISO-timestamp>
 ### 3. Invalidate Higher Slots
 If stamping a lower slot than existing higher latches (e.g. re-stamping `plan` while `30_tdd_red.md` exists):
 * For each higher slot file present:
-  Append its contents to `.state/archive/<ticket-id>.log`:
+  Append its contents to `.state/archive/<safe-id>.log`
+  (`<safe-id>` = ticket ID with every char outside `[A-Za-z0-9._-]` replaced by `_`, leading dots stripped, empty -> `UNKNOWN`; never raw ticket ID in a path):
   ```
   === INVALIDATED <slot_filename> <ISO-timestamp> ===
   <content>

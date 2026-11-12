@@ -193,3 +193,29 @@ def test_install_script_safety(tmp_path):
     )
     assert res_custom.returncode == 0
     assert (custom_target / "unix-primitives").exists()
+
+
+def test_update_ticket_read_happens_under_lock(tmp_ws, sm):
+    """Concurrent update-ticket must not drop a field written while it waited for the lock."""
+    pytest.importorskip("fcntl")
+    import sys
+    sm.init_workspace(str(tmp_ws), "TICKET-01", "Lock test")
+    state_dir = sm.get_state_dir(str(tmp_ws))
+    ticket = os.path.join(state_dir, sm.SLOTS[10])
+    script = os.path.abspath(sm.__file__)
+
+    with sm.state_lock(os.path.join(state_dir, ".lock")):
+        proc = subprocess.Popen(
+            [sys.executable, script, "update-ticket", "--field", "Owner", "--value", "bob", "--workspace", str(tmp_ws)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        time.sleep(0.5)
+        assert proc.poll() is None, "update-ticket did not wait for lock"
+        headers, body = sm.read_headers(ticket)
+        headers["Status"] = "DONE"
+        sm.write_headers(ticket, headers, body)
+
+    assert proc.wait(timeout=10) == 0
+    headers, _ = sm.read_headers(ticket)
+    assert headers["Status"] == "DONE"
+    assert headers["Owner"] == "bob"

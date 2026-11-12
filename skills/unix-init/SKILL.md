@@ -30,7 +30,8 @@ Check if `.state/10_ticket.md` exists:
 * If exists and `--force` **is** set:
   Read `Ticket-ID` from `10_ticket.md` (fallback: `previous`).
   Read contents of all existing transient latches (`10_ticket.md`, `20_plan.md`, `30_tdd_red.md`, `40_impl_green.md`, `99_next_action.md`).
-  Append to `.state/archive/<ticket-id>.log` under header `=== ARCHIVED <ISO-timestamp> ===\n`.
+  Append to `.state/archive/<safe-id>.log` under header `=== ARCHIVED <ISO-timestamp> ===\n`.
+  `<safe-id>` = ticket ID with every char outside `[A-Za-z0-9._-]` replaced by `_`, leading dots stripped (empty -> `UNKNOWN`). Never use raw ticket ID in a path.
   Delete previous transient latch files and any files under `.state/artifacts/`.
 
 ### 2. Write `.state/.gitignore`
@@ -80,7 +81,7 @@ Timestamp: <ISO-timestamp>
 ```
 
 ### 6. Write `.state/Makefile`
-Write deterministic build and milestone DAG:
+Write deterministic build and milestone DAG. Replace `<STATE_MANAGER>` with resolved absolute path of `scripts/state_manager.py` inside installed `unix-primitives` skill dir (do not assume `~/.gemini`; install target may differ):
 ```makefile
 STATE_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPO_ROOT := $(patsubst %/,%,$(dir $(STATE_DIR)))
@@ -100,13 +101,13 @@ $(STATE_DIR)/40_impl_green.md: $(STATE_DIR)/30_tdd_red.md
 	@echo "Awaiting implementation verification"
 
 ci-gate: $(STATE_DIR)/40_impl_green.md
-	@python3 ~/.gemini/config/skills/unix-primitives/scripts/state_manager.py verify --workspace "$(REPO_ROOT)"
+	@python3 "<STATE_MANAGER>" verify --workspace "$(REPO_ROOT)"
 
 status:
-	@python3 ~/.gemini/config/skills/unix-primitives/scripts/state_manager.py status --workspace "$(REPO_ROOT)"
+	@python3 "<STATE_MANAGER>" status --workspace "$(REPO_ROOT)"
 
 clean:
-	@python3 ~/.gemini/config/skills/unix-primitives/scripts/state_manager.py clean --workspace "$(REPO_ROOT)"
+	@python3 "<STATE_MANAGER>" clean --workspace "$(REPO_ROOT)"
 ```
 
 ### 7. Repo Verification Config (Optional)

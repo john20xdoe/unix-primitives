@@ -13,6 +13,8 @@ import time
 import argparse
 import re
 import subprocess
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Dict, Tuple
 
@@ -137,15 +139,7 @@ def _locked_write(path: str, text: str, mode: str = "w", lock_path: Optional[str
         else:
             lock_path = os.path.join(parent_dir, ".lock")
 
-    lock_fd = None
-    if fcntl is not None:
-        try:
-            lock_fd = open(lock_path, "w")
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        except Exception:
-            lock_fd = None
-
-    try:
+    with state_lock(lock_path):
         if "a" in mode:
             with open(path, "a", encoding="utf-8") as f:
                 f.write(text)
@@ -154,13 +148,32 @@ def _locked_write(path: str, text: str, mode: str = "w", lock_path: Optional[str
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
             os.replace(tmp_path, path)
-    finally:
-        if lock_fd is not None:
-            try:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-                lock_fd.close()
-            except Exception:
-                pass
+
+
+_lock_tls = threading.local()
+
+
+@contextmanager
+def state_lock(lock_path: str):
+    """Exclusive flock on lock_path. Re-entrant per thread: a second flock on a new fd would self-deadlock."""
+    lock_path = os.path.abspath(lock_path)
+    held = _lock_tls.__dict__.setdefault("held", set())
+    if fcntl is None or lock_path in held:
+        yield
+        return
+    try:
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        lock_fd = open(lock_path, "w")
+    except OSError:
+        yield
+        return
+    with lock_fd:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        held.add(lock_path)
+        try:
+            yield
+        finally:
+            held.discard(lock_path)
 
 
 def sanitize_id(s: str) -> str:
@@ -238,9 +251,11 @@ def update_ticket(workspace: str, field: str, value: str) -> None:
         print(f"Error: Field '{field}' cannot be updated", file=sys.stderr)
         sys.exit(1)
 
-    headers, body = read_headers(ticket_file)
-    headers[normalized_field] = value.strip()
-    write_headers(ticket_file, headers, body)
+    # Lock spans read+write so concurrent updates to different fields are not lost.
+    with state_lock(os.path.join(state_dir, ".lock")):
+        headers, body = read_headers(ticket_file)
+        headers[normalized_field] = value.strip()
+        write_headers(ticket_file, headers, body)
     print(f"Updated ticket field '{normalized_field}' in {SLOTS[10]}")
 
 
@@ -362,62 +377,64 @@ def stamp_milestone(workspace: str, slot_id: str, content: str, next_action: str
     slot_num = resolve_slot(slot_id)
     state_dir = get_state_dir(workspace)
 
-    ticket_file = os.path.join(state_dir, SLOTS[10])
-    if not os.path.exists(ticket_file) and not force:
-        print(f"Error: prerequisite {SLOTS[10]} missing", file=sys.stderr)
-        sys.exit(1)
-
-    filename = SLOTS[slot_num]
-    target_path = os.path.join(state_dir, filename)
-
-    if not force:
-        if slot_num == 20 and os.path.exists(target_path):
-            print(f"Error: milestone {filename} is write-once; pass --force to overwrite", file=sys.stderr)
+    # Lock spans check+write so write-once and prerequisite checks hold under concurrent stamps.
+    with state_lock(os.path.join(state_dir, ".lock")):
+        ticket_file = os.path.join(state_dir, SLOTS[10])
+        if not os.path.exists(ticket_file) and not force:
+            print(f"Error: prerequisite {SLOTS[10]} missing", file=sys.stderr)
             sys.exit(1)
-        elif slot_num == 30:
-            plan_file = os.path.join(state_dir, SLOTS[20])
-            if not os.path.exists(plan_file):
-                print(f"Error: prerequisite {SLOTS[20]} missing", file=sys.stderr)
+
+        filename = SLOTS[slot_num]
+        target_path = os.path.join(state_dir, filename)
+
+        if not force:
+            if slot_num == 20 and os.path.exists(target_path):
+                print(f"Error: milestone {filename} is write-once; pass --force to overwrite", file=sys.stderr)
                 sys.exit(1)
-        elif slot_num == 40:
-            tdd_file = os.path.join(state_dir, SLOTS[30])
-            if not os.path.exists(tdd_file):
-                print(f"Error: prerequisite {SLOTS[30]} missing", file=sys.stderr)
-                sys.exit(1)
+            elif slot_num == 30:
+                plan_file = os.path.join(state_dir, SLOTS[20])
+                if not os.path.exists(plan_file):
+                    print(f"Error: prerequisite {SLOTS[20]} missing", file=sys.stderr)
+                    sys.exit(1)
+            elif slot_num == 40:
+                tdd_file = os.path.join(state_dir, SLOTS[30])
+                if not os.path.exists(tdd_file):
+                    print(f"Error: prerequisite {SLOTS[30]} missing", file=sys.stderr)
+                    sys.exit(1)
 
-    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    _locked_write(target_path, f"Milestone: {filename}\nTimestamp: {now_iso}\n\n{content}\n", mode="w")
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        _locked_write(target_path, f"Milestone: {filename}\nTimestamp: {now_iso}\n\n{content}\n", mode="w")
 
-    # Read ticket ID if available
-    ticket_id = "UNKNOWN"
-    if os.path.exists(ticket_file):
-        headers, _ = read_headers(ticket_file)
-        ticket_id = headers.get("Ticket-ID", "UNKNOWN")
+        # Read ticket ID if available
+        ticket_id = "UNKNOWN"
+        if os.path.exists(ticket_file):
+            headers, _ = read_headers(ticket_file)
+            ticket_id = headers.get("Ticket-ID", "UNKNOWN")
 
-    # Invalidate higher milestone slots > slot_num
-    invalidated = []
-    for higher_slot in (20, 30, 40):
-        if higher_slot > slot_num:
-            higher_file = os.path.join(state_dir, SLOTS[higher_slot])
-            if os.path.exists(higher_file):
-                archive_dir = os.path.join(state_dir, "archive")
-                os.makedirs(archive_dir, exist_ok=True)
-                safe_ticket_id = sanitize_id(ticket_id)
-                archive_file = os.path.join(archive_dir, f"{safe_ticket_id}.log")
-                with open(higher_file, "r", encoding="utf-8") as hf:
-                    hcontent = hf.read()
-                arch_entry = f"=== INVALIDATED {SLOTS[higher_slot]} {now_iso} ===\n{hcontent}\n\n"
-                _locked_write(archive_file, arch_entry, mode="a")
-                try:
-                    os.remove(higher_file)
-                    invalidated.append(SLOTS[higher_slot])
-                except OSError:
-                    pass
-    if invalidated:
-        print(f"Invalidated: {', '.join(invalidated)}")
+        # Invalidate higher milestone slots > slot_num
+        invalidated = []
+        for higher_slot in (20, 30, 40):
+            if higher_slot > slot_num:
+                higher_file = os.path.join(state_dir, SLOTS[higher_slot])
+                if os.path.exists(higher_file):
+                    archive_dir = os.path.join(state_dir, "archive")
+                    os.makedirs(archive_dir, exist_ok=True)
+                    safe_ticket_id = sanitize_id(ticket_id)
+                    archive_file = os.path.join(archive_dir, f"{safe_ticket_id}.log")
+                    with open(higher_file, "r", encoding="utf-8") as hf:
+                        hcontent = hf.read()
+                    arch_entry = f"=== INVALIDATED {SLOTS[higher_slot]} {now_iso} ===\n{hcontent}\n\n"
+                    _locked_write(archive_file, arch_entry, mode="a")
+                    try:
+                        os.remove(higher_file)
+                        invalidated.append(SLOTS[higher_slot])
+                    except OSError:
+                        pass
+        if invalidated:
+            print(f"Invalidated: {', '.join(invalidated)}")
 
-    write_next_action(workspace, next_action, filename, "PROGRESSING", ticket_id)
-    print(f"Physical latch stamped: {filename} (Disk mtime updated)")
+        write_next_action(workspace, next_action, filename, "PROGRESSING", ticket_id)
+        print(f"Physical latch stamped: {filename} (Disk mtime updated)")
 
 
 def verify_gate(workspace: str, allow_dirty_config: bool = False) -> bool:

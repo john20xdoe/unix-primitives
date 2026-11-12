@@ -73,3 +73,31 @@ def test_readme_findings_only_from_example_table(up):
             assert idx != -1
             assert table_start_char <= idx <= table_end_char, f"Match '{m}' for {f['pattern']['id']} found outside 17 primitives table"
 
+
+
+def test_documented_cli_commands_parse(tmp_ws):
+    """Every documented `python3 .../state_manager.py ...` line in skills/ must be accepted by argparse."""
+    import re
+    import shlex
+    import subprocess
+    import sys
+
+    script = REPO_ROOT / "skills" / "unix-primitives" / "scripts" / "state_manager.py"
+    line_re = re.compile(r"python3\s+(?:\S*state_manager\.py|\"<STATE_MANAGER>\")\s+(.*)$")
+    commands = []
+    for md in sorted((REPO_ROOT / "skills").rglob("*.md")):
+        for line in md.read_text(encoding="utf-8").splitlines():
+            m = line_re.search(line)
+            if not m:
+                continue
+            args = m.group(1).split("<<")[0]
+            args = args.replace("$(REPO_ROOT)", str(tmp_ws)).replace("[", " ").replace("]", " ")
+            args = re.sub(r"<([^<>|]+)(?:\|[^<>]+)?>", r"\1", args)  # <a|b> -> a, <x> -> x
+            args = re.sub(r"(\S+?)\|\S+", r"\1", args)              # a|b -> a
+            commands.append((md.relative_to(REPO_ROOT), shlex.split(args)))
+
+    assert len(commands) >= 8, f"expected documented CLI lines, found {len(commands)}"
+    for src, argv in commands:
+        res = subprocess.run([sys.executable, str(script), *argv], cwd=str(tmp_ws),
+                             input="", capture_output=True, text=True)
+        assert res.returncode != 2, f"{src}: argparse rejected {argv}: {res.stderr.strip()}"
