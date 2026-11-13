@@ -17,33 +17,11 @@ LOW = 1
 MODERATE = 25
 CRITICAL = 60
 
-REMEDY_TERMS = [
-    "git bisect",
-    "binary search commits",
-    "least privilege",
-    "stream demux",
-    "signal trap",
-    "fail-fast shell",
-    "context bloat",
-    "apology death spiral",
-    "compaction amnesia",
-    "sunny-day testing",
-    "superficial review",
-    "polite code review",
-    "topological commits",
-    "commit decomposition",
-    "unbounded context",
-    "subagent delegation",
-    "silent error swallowing",
-    "trial edits",
-    "pause gate",
-]
-
 PATTERNS = [
     {
         "id": "MAKEFILE_DAG",
         "name": "Imperative Execution Checklist / GOTO Loop",
-        "regex": r"(?i)(?:step\s*\d+[:\.]?[^\n]{1,60}(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|before\s+(?:proceeding|moving\s+to|continuing)\s+to\s+step\s*\d+|depends\s+on\s+step\s*\d+|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)\s*\n(?=(?:[^\n]*\n){0,20}[^\n]*(?:goto|go\s+back|return\s+to|repeat\s+step|if\s+.*?\bthen\s+step|depends\s+on\s+step|before\s+proceeding\s+to\s+step))|(?:\b1\.\s+(?:[^\n]*\n){0,20}?\s*\b2\.\s+[^\n]*(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+.*?\bthen\s+step)))",
+        "regex": r"(?i)(?:step\s*\d+[:\.]?[^\n]{1,60}(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|(?:goto|go\s+back\s+to|return\s+to)\s+step\s*\d+|before\s+(?:proceeding|moving\s+to|continuing)\s+to\s+step\s*\d+|depends\s+on\s+step\s*\d+|#+\s*(?:workflow|pipeline|execution\s+steps?|steps\s+to\s+follow|order\s+of\s+operations)\s*\n(?=(?:[^\n]*\n){0,20}[^\n]*(?:goto|go\s+back|return\s+to|repeat\s+step|if\s+[^\n]{0,120}?\bthen\s+step|depends\s+on\s+step|before\s+proceeding\s+to\s+step))|(?:\b1\.\s+(?:[^\n]*\n){0,20}?\s*\b2\.\s+[^\n]*(?:goto|go\s+back\s+to|return\s+to\s+step|repeat\s+step|if\s+[^\n]{0,120}?\bthen\s+step)))",
         "canonical": "GNU Makefile DAG (target: prerequisites, .PHONY)",
         "explanation": "Replace linear checklist with backward-chaining Makefile targets and file mtime invalidation.",
         "snippet": """.PHONY: finish ci-gate
@@ -474,9 +452,19 @@ def classify_file_suitability(content: str, rel_path: str, findings: List[Dict])
     }
 
 
+def score_status(score: int) -> str:
+    if score >= CRITICAL:
+        return "CRITICAL: Highly Fragile"
+    if score >= MODERATE:
+        return "MODERATE: Can be hardened"
+    if score >= LOW:
+        return "LOW: Minor friction detected"
+    return "CLEAN: Aligns with canonical CS primitives"
+
+
 def format_scan_report(filepath: str, findings: List[Dict], total_lines: int, content: str = "") -> str:
     score = calculate_friction_score(findings, total_lines)
-    status = "CRITICAL: Highly Fragile" if score >= CRITICAL else "MODERATE: Can be hardened" if score >= MODERATE else "LOW: Minor friction detected" if score >= LOW else "CLEAN: Aligns with canonical CS primitives"
+    status = score_status(score)
     rel_path = os.path.basename(filepath)
     suit = classify_file_suitability(content, rel_path, findings)
 
@@ -610,7 +598,7 @@ def scan_directory(dir_path: str) -> None:
 
     avg_score = sum(r["score"] for r in file_results) // len(file_results) if file_results else 0
     max_score = max((r["score"] for r in file_results), default=0)
-    status = "CRITICAL: Highly Fragile" if max_score >= CRITICAL else "MODERATE: Can be hardened" if max_score >= MODERATE else "LOW: Minor friction detected" if max_score >= LOW else "CLEAN: Aligns with canonical CS primitives"
+    status = score_status(max_score)
 
     print("=== Local .agents/ Workspace Friction Audit ===")
     print(f"Target Directory: {dir_path}")
@@ -892,6 +880,9 @@ def main():
 
     if cmd == "delta":
         report = format_score_delta(args.original, args.rewritten)
+        if report.startswith("Error:"):
+            print(report, file=sys.stderr)
+            sys.exit(1)
         print(report)
         sys.exit(0)
 

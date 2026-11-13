@@ -19,9 +19,31 @@ def test_classifier_canonical_doc_is_reference(up):
     assert suit["detected_primitives"] == {}
 
 
+REMEDY_TERMS = [
+    "git bisect",
+    "binary search commits",
+    "least privilege",
+    "stream demux",
+    "signal trap",
+    "fail-fast shell",
+    "context bloat",
+    "apology death spiral",
+    "compaction amnesia",
+    "sunny-day testing",
+    "superficial review",
+    "polite code review",
+    "topological commits",
+    "commit decomposition",
+    "unbounded context",
+    "subagent delegation",
+    "silent error swallowing",
+    "trial edits",
+    "pause gate",
+]
+
+
 def test_keywords_exclude_remedy_terms(up):
-    assert hasattr(up, "REMEDY_TERMS"), "REMEDY_TERMS list missing from unix_primitives.py"
-    for term in up.REMEDY_TERMS:
+    for term in REMEDY_TERMS:
         term_lower = term.lower()
         for p in up.PATTERNS:
             for kw in p.get("keywords", []):

@@ -16,6 +16,7 @@ import math
 import json
 import time
 import shutil
+import signal
 import random
 import argparse
 import datetime
@@ -306,25 +307,30 @@ def main() -> None:
                         variant=arm_name
                     )
 
-                    agent_exit = 0
                     timed_out = False
-                    agent_out = ""
-                    agent_err = ""
+                    # Own process group: on timeout kill shell AND agent, else agent keeps editing sandbox during check.sh
+                    agent_proc = subprocess.Popen(
+                        formatted_cmd,
+                        shell=True,
+                        cwd=str(sandbox),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        start_new_session=True
+                    )
                     try:
-                        agent_res = subprocess.run(
-                            formatted_cmd,
-                            shell=True,
-                            cwd=str(sandbox),
-                            timeout=args.timeout,
-                            capture_output=True,
-                            text=True
-                        )
-                        agent_exit = agent_res.returncode
-                        agent_out = agent_res.stdout or ""
-                        agent_err = agent_res.stderr or ""
+                        agent_out, agent_err = agent_proc.communicate(timeout=args.timeout)
+                        agent_exit = agent_proc.returncode
                     except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(agent_proc.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        agent_out, agent_err = agent_proc.communicate()
                         agent_exit = 124
                         timed_out = True
+                    agent_out = agent_out or ""
+                    agent_err = agent_err or ""
 
                     host_chmod_attempt = False
                     if arm_name == "host":
@@ -354,26 +360,13 @@ def main() -> None:
                     status_str = "PASS" if passed else "FAIL"
                     print(f"[{status_str}] Task: {task.name:<20} | Arm: {arm_name:<10} | Iteration {it}/{args.iterations}")
 
-                    key = (task.name, args.model, arm_name)
-                    task_cell_stats[key]["total"] += 1
-                    if passed:
-                        task_cell_stats[key]["pass"] += 1
-                    else:
-                        task_cell_stats[key]["fail"] += 1
-                    if timed_out:
-                        task_cell_stats[key]["timeouts"] += 1
-                    if agent_exit != 0 and not timed_out:
-                        task_cell_stats[key]["agent_errors"] += 1
-
-                    pooled_stats[arm_name]["total"] += 1
-                    if passed:
-                        pooled_stats[arm_name]["pass"] += 1
-                    else:
-                        pooled_stats[arm_name]["fail"] += 1
-                    if timed_out:
-                        pooled_stats[arm_name]["timeouts"] += 1
-                    if agent_exit != 0 and not timed_out:
-                        pooled_stats[arm_name]["agent_errors"] += 1
+                    for stats in (task_cell_stats[(task.name, args.model, arm_name)], pooled_stats[arm_name]):
+                        stats["total"] += 1
+                        stats["pass" if passed else "fail"] += 1
+                        if timed_out:
+                            stats["timeouts"] += 1
+                        if agent_exit != 0 and not timed_out:
+                            stats["agent_errors"] += 1
 
                     record = {
                         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),

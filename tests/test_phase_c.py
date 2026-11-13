@@ -468,3 +468,25 @@ def test_prereg_gate():
         git("commit", "-qm", "tweak", date="2026-01-03T00:00:00Z")
         assert not gate()
 
+
+
+def test_timeout_kills_whole_agent_process_group(tmp_path):
+    """Compound AGENT_CMD: timeout must kill agent child, not only the shell."""
+    tmp_tasks = tmp_path / "tasks"
+    tmp_prompts = tmp_path / "prompts"
+    shutil.copytree(REPO_ROOT / "eval" / "tasks" / "01_retry_loop_bait", tmp_tasks / "01_retry_loop_bait")
+    shutil.copytree(REPO_ROOT / "eval" / "prompts" / "01_retry_loop_bait", tmp_prompts / "01_retry_loop_bait")
+    marker = tmp_path / "orphan_marker"
+
+    env = os.environ.copy()
+    env["AGENT_CMD"] = f'true && sleep 2 && touch "{marker}"'
+    cmd = [
+        sys.executable, str(REPO_ROOT / "eval" / "run_ab.py"),
+        "-n", "1", "--arms", "prose", "--timeout", "1", "--no-prereg",
+        "--tasks-dir", str(tmp_tasks), "--prompts-dir", str(tmp_prompts),
+        "--results-dir", str(tmp_path / "results"),
+    ]
+    res = subprocess.run(cmd, cwd=REPO_ROOT, env=env, capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    time.sleep(2.5)
+    assert not marker.exists(), "agent survived timeout"

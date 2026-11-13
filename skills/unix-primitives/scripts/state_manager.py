@@ -109,7 +109,7 @@ fi
 STATE_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.state"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 
-if [ -d "$STATE_DIR" ]; then
+if [ -f "$STATE_DIR/10_ticket.md" ]; then
     echo "=== [unix-primitives] Validating {hook_type} runlevel ==="
     python3 "{state_manager_path}" verify --workspace "$REPO_ROOT"
     if [ $? -ne 0 ]; then
@@ -195,12 +195,6 @@ def resolve_slot(slot_identifier: str) -> int:
     key = str(slot_identifier).strip().lower()
     if key in SLOT_ALIASES:
         return SLOT_ALIASES[key]
-    try:
-        val = int(key)
-        if val in (20, 30, 40):
-            return val
-    except ValueError:
-        pass
     print(f"Error: '{slot_identifier}' is not a stampable milestone (plan|tdd|impl)", file=sys.stderr)
     sys.exit(1)
 
@@ -229,7 +223,15 @@ def read_headers(path: str) -> Tuple[Dict[str, str], str]:
     return headers, "".join(body_lines)
 
 
+def reject_newlines(*values: str) -> None:
+    """Header keys/values are one line each; a newline would inject extra headers (e.g. a second Ticket-ID)."""
+    if any("\n" in v or "\r" in v for v in values):
+        print("Error: header keys and values must not contain newlines", file=sys.stderr)
+        sys.exit(1)
+
+
 def write_headers(path: str, headers: Dict[str, str], body: str = "") -> None:
+    reject_newlines(*headers.keys(), *headers.values())
     content = ""
     for k, v in headers.items():
         content += f"{k}: {v}\n"
@@ -268,6 +270,7 @@ def init_workspace(
     track_governance: bool = False,
     force: bool = False
 ) -> None:
+    reject_newlines(ticket_id, title, verify_cmd)  # before any write, so a bad title leaves state untouched
     state_dir = get_state_dir(workspace)
     os.makedirs(state_dir, exist_ok=True)
 
@@ -375,6 +378,7 @@ Timestamp: {now_iso}
 
 def stamp_milestone(workspace: str, slot_id: str, content: str, next_action: str, force: bool = False) -> None:
     slot_num = resolve_slot(slot_id)
+    reject_newlines(next_action)
     state_dir = get_state_dir(workspace)
 
     # Lock spans check+write so write-once and prerequisite checks hold under concurrent stamps.
@@ -494,6 +498,9 @@ def verify_gate(workspace: str, allow_dirty_config: bool = False) -> bool:
     if os.path.exists(repo_cfg_path):
         cfg_headers, _ = read_headers(repo_cfg_path)
         verify_cmd = cfg_headers.get("Verify-Command", "")
+        if not verify_cmd:
+            print("Error: .unix-primitives has no Verify-Command header (must be first lines, before any line without ':')", file=sys.stderr)
+            sys.exit(1)
 
     if verify_cmd:
         print(f"Executing verify command from .unix-primitives: {verify_cmd}")
@@ -618,11 +625,12 @@ def clean_active_latches(workspace: str, archive: bool = True) -> None:
                 rot_content += f"=== ROTATED FROM {rf} ===\n"
                 with open(rf_path, "r", encoding="utf-8") as src:
                     rot_content += src.read() + "\n\n"
+            _locked_write(rotated_log, rot_content, mode="a")  # save before delete: failed write must not lose logs
+            for rf in to_rotate:
                 try:
-                    os.remove(rf_path)
+                    os.remove(os.path.join(archive_dir, rf))
                 except OSError:
                     pass
-            _locked_write(rotated_log, rot_content, mode="a")
 
     # Remove active transient slots (preserve 00_governance.md, .gitignore, Makefile)
     for slot_num in [10, 20, 30, 40, 99]:

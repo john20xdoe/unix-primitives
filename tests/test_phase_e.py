@@ -64,3 +64,40 @@ def test_hook_calls_verify_directly(tmp_ws, sm):
     content = (hooks_dir / "pre-push").read_text(encoding="utf-8")
     assert "verify --workspace" in content
     assert "ci-gate" not in content
+
+
+def test_hook_passes_after_clean(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "T1", "t")
+    sm.manage_hook(str(tmp_ws), hook_type="pre-push", remove=False)
+    sm.clean_active_latches(str(tmp_ws), archive=True)
+    hook = tmp_ws / ".git" / "hooks" / "pre-push"
+    res = subprocess.run([str(hook)], cwd=str(tmp_ws), stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_header_newline_rejected(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "T1", "t")
+    with pytest.raises(SystemExit):
+        sm.update_ticket(str(tmp_ws), "Status", "x\nTicket-ID: evil")
+    with pytest.raises(SystemExit):
+        sm.init_workspace(str(tmp_ws), "T2", "a\nTicket-ID: evil", force=True)
+    headers, _ = sm.read_headers(str(tmp_ws / ".state" / "10_ticket.md"))
+    assert headers["Ticket-ID"] == "T1"
+
+
+def test_verify_fails_when_config_lacks_command(tmp_ws, sm):
+    sm.init_workspace(str(tmp_ws), "T1", "t")
+    (tmp_ws / ".unix-primitives").write_text("# gate\nVerify-Command: false\n", encoding="utf-8")
+    subprocess.run(["git", "add", ".unix-primitives"], cwd=str(tmp_ws), check=True)
+    subprocess.run(["git", "commit", "-qm", "cfg"], cwd=str(tmp_ws), check=True)
+    sm.stamp_milestone(str(tmp_ws), "impl", "i", "next", force=True)
+    with pytest.raises(SystemExit) as exc:
+        sm.verify_gate(str(tmp_ws))
+    assert exc.value.code == 1
+
+
+def test_delta_missing_file_exits_nonzero(tmp_path):
+    script = Path(__file__).resolve().parent.parent / "skills" / "unix-primitives" / "scripts" / "unix_primitives.py"
+    res = subprocess.run(["python3", str(script), "delta", str(tmp_path / "a"), str(tmp_path / "b")], capture_output=True, text=True)
+    assert res.returncode == 1
+    assert "not found" in res.stderr
